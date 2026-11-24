@@ -1,9 +1,6 @@
 import { emptyLibrary, normalizeLibrary } from "../models/types";
 import type { Library } from "../models/types";
 
-// Kommt von dem Google-Skript aus index.html
-declare const google: any;
-
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const FILE_NAME = "bibliothek.json";
@@ -11,28 +8,64 @@ const FILE_NAME = "bibliothek.json";
 let accessToken: string | null = null;
 let tokenExpiresAt = 0;
 let fileId: string | null = null;
+let loginError: string | null = null;
 
-// Anmeldung: öffnet das Google-Fenster
-export function login(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPE,
-      callback: (response: any) => {
-        if (response.error) {
-          reject(new Error(response.error));
-          return;
-        }
-        accessToken = response.access_token;
-        // Token gilt ca. 1 Stunde, wir rechnen eine Minute Puffer ein
-        tokenExpiresAt = Date.now() + (response.expires_in - 60) * 1000;
-        resolve();
-      },
-      error_callback: (err: any) =>
-        reject(new Error(err?.type ?? "Anmeldung fehlgeschlagen")),
-    });
-    client.requestAccessToken();
+// Adresse, zu der Google nach der Anmeldung zurückkehrt
+function redirectUri(): string {
+  return window.location.origin + import.meta.env.BASE_URL;
+}
+
+// Anmeldung: Die ganze Seite wechselt zu Google und kommt danach zurück
+export function login(): void {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem("oauth_state", state);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri(),
+    response_type: "token",
+    scope: SCOPE,
+    state,
+    include_granted_scopes: "true",
   });
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+// Beim Start der Seite: Kommen wir gerade von der Google-Anmeldung zurück?
+function readLoginResult() {
+  const hash = window.location.hash;
+  if (!hash.includes("access_token") && !hash.includes("error")) return;
+
+  const params = new URLSearchParams(hash.slice(1));
+  const expectedState = sessionStorage.getItem("oauth_state");
+  sessionStorage.removeItem("oauth_state");
+
+  // Token sofort aus der Adresszeile entfernen
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+
+  const error = params.get("error");
+  if (error) {
+    loginError = error;
+    return;
+  }
+  if (!expectedState || params.get("state") !== expectedState) {
+    loginError = "Ungültige Anmeldeantwort (state).";
+    return;
+  }
+  const token = params.get("access_token");
+  if (!token) {
+    loginError = "Kein Zugriffstoken erhalten.";
+    return;
+  }
+  accessToken = token;
+  const expiresIn = Number(params.get("expires_in") ?? "3600");
+  // Token gilt ca. 1 Stunde, wir rechnen eine Minute Puffer ein
+  tokenExpiresAt = Date.now() + (expiresIn - 60) * 1000;
+}
+
+readLoginResult();
+
+export function getLoginError(): string | null {
+  return loginError;
 }
 
 export function isLoggedIn(): boolean {
@@ -74,7 +107,7 @@ export async function loadLibrary(): Promise<Library> {
   const res = await driveFetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`
   );
-    return normalizeLibrary(await res.json());
+  return normalizeLibrary(await res.json());
 }
 
 // Speichern: legt die Datei beim ersten Mal an, danach wird sie überschrieben

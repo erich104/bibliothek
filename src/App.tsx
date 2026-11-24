@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { login, loadLibrary, saveLibrary } from "./storage/driveStorage";
+import {
+  login,
+  loadLibrary,
+  saveLibrary,
+  isLoggedIn,
+  getLoginError,
+} from "./storage/driveStorage";
 import { normalizeLibrary } from "./models/types";
 import type { Library } from "./models/types";
 import Recipes from "./pages/Recipes";
@@ -20,20 +26,43 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function App() {
   const [library, setLibrary] = useState<Library | null>(null);
-  const [status, setStatus] = useState("Nicht angemeldet");
+  const [status, setStatus] = useState(
+    getLoginError()
+      ? `Anmeldung fehlgeschlagen: ${getLoginError()}`
+      : "Nicht angemeldet"
+  );
   const [saveFailed, setSaveFailed] = useState(false);
   const [tab, setTab] = useState<Tab>("recipes");
+  const started = useRef(false);
 
-  async function handleLogin() {
-    try {
-      await login();
-      setStatus("Angemeldet, lade Daten …");
-      const lib = await loadLibrary();
-      setLibrary(lib);
-      setStatus("Daten geladen");
-    } catch (e) {
-      setStatus(String(e));
-    }
+  // Beim Start: Sind wir gerade von der Google-Anmeldung zurückgekehrt? Dann Daten laden.
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    if (!isLoggedIn()) return;
+
+    (async () => {
+      try {
+        setStatus("Angemeldet, lade Daten …");
+        const pending = sessionStorage.getItem("pending_library");
+        if (pending) {
+          // Änderungen, die vor dem erneuten Anmelden noch nicht gespeichert werden konnten
+          sessionStorage.removeItem("pending_library");
+          await updateLibrary(normalizeLibrary(JSON.parse(pending)));
+        } else {
+          const lib = await loadLibrary();
+          setLibrary(lib);
+          setStatus("Daten geladen");
+        }
+      } catch (e) {
+        setStatus(String(e));
+      }
+    })();
+  }, []);
+
+  function handleLogin() {
+    sessionStorage.removeItem("pending_library");
+    login();
   }
 
   // Zentrale Stelle: Daten ändern und in Drive speichern
@@ -50,15 +79,19 @@ export default function App() {
     }
   }
 
-  // Falls die Anmeldung nach einer Stunde abgelaufen ist
-  async function retrySave() {
+  // Falls die Anmeldung nach einer Stunde abgelaufen ist:
+  // Änderungen kurz zwischenspeichern, neu anmelden, danach speichern
+  function retrySave() {
     if (!library) return;
     try {
-      await login();
-      await updateLibrary(library);
-    } catch (e) {
-      setStatus(String(e));
+      sessionStorage.setItem("pending_library", JSON.stringify(library));
+    } catch {
+      alert(
+        "Die Änderungen konnten nicht zwischengespeichert werden. Bitte exportiere zuerst ein Backup."
+      );
+      return;
     }
+    login();
   }
 
   function exportJson() {
@@ -81,7 +114,11 @@ export default function App() {
     reader.onload = () => {
       try {
         const data = JSON.parse(String(reader.result));
-        if (typeof data !== "object" || data === null || !Array.isArray(data.recipes)) {
+        if (
+          typeof data !== "object" ||
+          data === null ||
+          !Array.isArray(data.recipes)
+        ) {
           throw new Error("Ungültiges Format");
         }
         if (!confirm("Die aktuellen Daten durch den Inhalt der Datei ersetzen?")) {
