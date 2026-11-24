@@ -139,6 +139,10 @@ export default function App() {
       <div className="container">
         <h1>Meine Bibliothek</h1>
         <p className="muted">Status: {status}</p>
+                <p className="muted">
+          ID: {String(import.meta.env.VITE_GOOGLE_CLIENT_ID)} (Länge:{" "}
+          {String(import.meta.env.VITE_GOOGLE_CLIENT_ID).length})
+        </p>
         <button className="primary" onClick={handleLogin}>
           Mit Google anmelden
         </button>
