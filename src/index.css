@@ -1,0 +1,216 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #fafaf7;
+  color: #222;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+label {
+  display: block;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+input,
+textarea,
+select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  margin-top: 4px;
+  font: inherit;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+button,
+.filebutton {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+button.primary {
+  background: #2f6f4f;
+  color: #fff;
+  border-color: #2f6f4f;
+}
+
+.filebutton {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.row > * {
+  flex: 1;
+}
+
+.row > button,
+.row > span {
+  flex: 0 0 auto;
+}
+
+.row > .filebutton {
+  flex: 0 0 auto;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tabs button.active,
+.tag.active {
+  background: #2f6f4f;
+  color: #fff;
+  border-color: #2f6f4f;
+}
+
+.muted {
+  color: #777;
+  font-size: 0.9rem;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  margin: 2px 4px 2px 0;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 0.8rem;
+}
+
+ul.cards {
+  list-style: none;
+  padding: 0;
+}
+
+ul.cards li {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+ul.cards li:hover {
+  border-color: #2f6f4f;
+}
+
+/* ---- Ergänzungen ---- */
+
+.tabs {
+  flex-wrap: wrap;
+}
+
+.recipe-image {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+ul.cards li.with-thumb {
+  display: flex;
+  gap: 12px;
+}
+
+.thumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.todo-item input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.done {
+  text-decoration: line-through;
+  color: #888;
+}
+
+.warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Drucken / PDF: nur das Rezept ausgeben ---- */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

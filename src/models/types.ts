@@ -1,0 +1,104 @@
+export type Recipe = {
+  id: string;
+  title: string;
+  category?: string;
+  image?: string; // verkleinertes Bild als Data-URL
+  ingredients: { name: string; amount?: string; unit?: string }[];
+  steps: string[];
+  servings?: number;
+  minutes?: number;
+  tags: string[];
+  source?: string;
+  notes?: string;
+  rating?: number;
+  createdAt: string;
+};
+
+export type Place = {
+  id: string;
+  name: string;
+  country?: string;
+  lat: number;
+  lng: number;
+  status: "visited" | "wishlist";
+  date?: string;
+  category?: string;
+  notes?: string;
+  link?: string;
+  createdAt: string;
+};
+
+export type Todo = {
+  id: string;
+  text: string;
+  done: boolean;
+  dueDate?: string; // "JJJJ-MM-TT"
+  createdAt: string;
+};
+
+export type ContractInterval = "monthly" | "quarterly" | "yearly";
+
+export type Contract = {
+  id: string;
+  name: string;
+  provider?: string;
+  type: string; // Abo, Versicherung, Vertrag, ...
+  cost?: number; // pro Zahlung, in Euro
+  interval: ContractInterval;
+  runsUntil?: string; // "JJJJ-MM-TT"
+  cancelBy?: string; // "JJJJ-MM-TT"
+  notes?: string;
+  createdAt: string;
+};
+
+export type Settings = {
+  recipeCategories: string[];
+};
+
+export type Library = {
+  version: 1;
+  recipes: Recipe[];
+  places: Place[];
+  todos: Todo[];
+  contracts: Contract[];
+  settings: Settings;
+};
+
+export const DEFAULT_RECIPE_CATEGORIES = [
+  "Hauptgang",
+  "Vorspeise",
+  "Nachspeise",
+  "Kuchen",
+  "Getränk",
+];
+
+export function emptyLibrary(): Library {
+  return {
+    version: 1,
+    recipes: [],
+    places: [],
+    todos: [],
+    contracts: [],
+    settings: { recipeCategories: [...DEFAULT_RECIPE_CATEGORIES] },
+  };
+}
+
+// Ergänzt fehlende Felder (z. B. bei Daten aus älteren Versionen der App)
+export function normalizeLibrary(
+  data: Partial<Library> | null | undefined
+): Library {
+  const d: Partial<Library> = data ?? {};
+  const categories = d.settings?.recipeCategories;
+  return {
+    version: 1,
+    recipes: Array.isArray(d.recipes) ? d.recipes : [],
+    places: Array.isArray(d.places) ? d.places : [],
+    todos: Array.isArray(d.todos) ? d.todos : [],
+    contracts: Array.isArray(d.contracts) ? d.contracts : [],
+    settings: {
+      recipeCategories: Array.isArray(categories)
+        ? categories
+        : [...DEFAULT_RECIPE_CATEGORIES],
+    },
+  };
+}
