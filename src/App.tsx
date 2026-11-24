@@ -12,6 +12,7 @@ import type { Library } from "./models/types";
 import Recipes from "./pages/Recipes";
 import Todos from "./pages/Todos";
 import Contracts from "./pages/Contracts";
+import Travel from "./pages/Travel";
 import SettingsPage from "./pages/SettingsPage";
 
 type Tab = "recipes" | "travel" | "todos" | "contracts" | "settings";
@@ -139,10 +140,6 @@ export default function App() {
       <div className="container">
         <h1>Meine Bibliothek</h1>
         <p className="muted">Status: {status}</p>
-                <p className="muted">
-          ID: {String(import.meta.env.VITE_GOOGLE_CLIENT_ID)} (Länge:{" "}
-          {String(import.meta.env.VITE_GOOGLE_CLIENT_ID).length})
-        </p>
         <button className="primary" onClick={handleLogin}>
           Mit Google anmelden
         </button>
@@ -181,8 +178,11 @@ export default function App() {
         />
       )}
 
-      {tab === "travel" && (
-        <p className="muted">Die Reisekarte kommt im nächsten Schritt.</p>
+            {tab === "travel" && (
+        <Travel
+          places={library.places}
+          onChange={(places) => updateLibrary({ ...library, places })}
+        />
       )}
 
       {tab === "todos" && (
