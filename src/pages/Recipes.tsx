@@ -6,6 +6,8 @@ type Props = {
   recipes: Recipe[];
   categories: string[];
   onChange: (recipes: Recipe[]) => void;
+  onAddToShopping: (recipe: Recipe) => number;
+  onGoHome: () => void;
 };
 
 type View =
@@ -13,12 +15,18 @@ type View =
   | { type: "form"; recipe?: Recipe }
   | { type: "detail"; id: string };
 
-export default function Recipes({ recipes, categories, onChange }: Props) {
+export default function Recipes({
+  recipes,
+  categories,
+  onChange,
+  onAddToShopping,
+  onGoHome,
+}: Props) {
   const [view, setView] = useState<View>({ type: "list" });
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-
+    const [shopMsg, setShopMsg] = useState<{ id: string; text: string } | null>(null);
   const allTags = Array.from(new Set(recipes.flatMap((r) => r.tags))).sort();
 
   const filtered = recipes
@@ -57,6 +65,17 @@ export default function Recipes({ recipes, categories, onChange }: Props) {
     document.title = title; // wird als Dateiname vorgeschlagen
     window.print();
     document.title = oldTitle;
+  }
+
+  function addShopping(recipe: Recipe) {
+    const n = onAddToShopping(recipe);
+    setShopMsg({
+      id: recipe.id,
+      text:
+        n > 0
+          ? `${n} Zutat(en) auf die Einkaufsliste gesetzt.`
+          : "Alle Zutaten stehen schon auf der Liste.",
+    });
   }
 
   // Formular
@@ -165,7 +184,19 @@ export default function Recipes({ recipes, categories, onChange }: Props) {
             </p>
           )}
         </div>
-
+              {recipe.ingredients.length > 0 && (
+          <div className="no-print" style={{ marginTop: 16 }}>
+            <button className="primary" onClick={() => addShopping(recipe)}>
+              🛒 Zutaten auf die Einkaufsliste
+            </button>
+            {shopMsg?.id === recipe.id && (
+              <p className="muted">
+                {shopMsg.text}{" "}
+                <button onClick={onGoHome}>Zur Einkaufsliste</button>
+              </p>
+            )}
+          </div>
+        )}
         <div className="row no-print" style={{ marginTop: 16 }}>
           <button onClick={() => setView({ type: "form", recipe })}>
             Bearbeiten

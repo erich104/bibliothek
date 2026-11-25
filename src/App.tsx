@@ -2,24 +2,36 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   login,
+  logout,
   loadLibrary,
   saveLibrary,
   isLoggedIn,
   getLoginError,
 } from "./storage/driveStorage";
 import { normalizeLibrary } from "./models/types";
-import type { Library } from "./models/types";
+import type { Library, Recipe, ShoppingItem } from "./models/types";
+import Home from "./pages/Home";
 import Recipes from "./pages/Recipes";
+import Travel from "./pages/Travel";
+import Calendar from "./pages/Calendar";
 import Todos from "./pages/Todos";
 import Contracts from "./pages/Contracts";
-import Travel from "./pages/Travel";
 import SettingsPage from "./pages/SettingsPage";
 
-type Tab = "recipes" | "travel" | "todos" | "contracts" | "settings";
+type Tab =
+  | "home"
+  | "recipes"
+  | "travel"
+  | "calendar"
+  | "todos"
+  | "contracts"
+  | "settings";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "home", label: "Start" },
   { id: "recipes", label: "Rezepte" },
   { id: "travel", label: "Reisen" },
+  { id: "calendar", label: "Kalender" },
   { id: "todos", label: "To-Do" },
   { id: "contracts", label: "Verträge" },
   { id: "settings", label: "Einstellungen" },
@@ -33,8 +45,15 @@ export default function App() {
       : "Nicht angemeldet"
   );
   const [saveFailed, setSaveFailed] = useState(false);
-  const [tab, setTab] = useState<Tab>("recipes");
+  const [tab, setTab] = useState<Tab>("home");
   const started = useRef(false);
+
+  // Für das gebündelte Speichern
+  const latest = useRef<Library | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const saving = useRef(false);
+  const dirty = useRef(false);
+  const pendingChanges = useRef(false);
 
   // Beim Start: Sind wir gerade von der Google-Anmeldung zurückgekehrt? Dann Daten laden.
   useEffect(() => {
@@ -49,7 +68,7 @@ export default function App() {
         if (pending) {
           // Änderungen, die vor dem erneuten Anmelden noch nicht gespeichert werden konnten
           sessionStorage.removeItem("pending_library");
-          await updateLibrary(normalizeLibrary(JSON.parse(pending)));
+          updateLibrary(normalizeLibrary(JSON.parse(pending)));
         } else {
           const lib = await loadLibrary();
           setLibrary(lib);
@@ -61,22 +80,81 @@ export default function App() {
     })();
   }, []);
 
+  // Beim Wechsel in eine andere App/einen anderen Tab sofort speichern
+  useEffect(() => {
+    function onHide() {
+      if (
+        document.visibilityState === "hidden" &&
+        pendingChanges.current &&
+        !saving.current
+      ) {
+        window.clearTimeout(timer.current);
+        flushSave();
+      }
+    }
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
+
   function handleLogin() {
     sessionStorage.removeItem("pending_library");
     login();
   }
 
-  // Zentrale Stelle: Daten ändern und in Drive speichern
-  async function updateLibrary(updated: Library) {
-    setLibrary(updated);
-    setStatus("Speichere …");
+  function handleLogout() {
+    if (pendingChanges.current && !saveFailed) {
+      alert("Es wird noch gespeichert. Bitte versuche es in einem Moment noch einmal.");
+      return;
+    }
+    if (saveFailed && !confirm("Es gibt ungespeicherte Änderungen. Trotzdem abmelden?")) {
+      return;
+    }
+    window.clearTimeout(timer.current);
+    logout();
+    latest.current = null;
+    pendingChanges.current = false;
+    setLibrary(null);
     setSaveFailed(false);
+    setTab("home");
+    setStatus("Abgemeldet.");
+  }
+
+  // Zentrale Stelle: Daten ändern, kurz warten, dann gebündelt in Drive speichern
+  function updateLibrary(updated: Library) {
+    setLibrary(updated);
+    latest.current = updated;
+    pendingChanges.current = true;
+    setSaveFailed(false);
+    setStatus("Änderungen …");
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flushSave, 800);
+  }
+
+  async function flushSave() {
+    timer.current = undefined;
+    if (saving.current) {
+      dirty.current = true;
+      return;
+    }
+    const lib = latest.current;
+    if (!lib || !pendingChanges.current) return;
+    pendingChanges.current = false;
+    saving.current = true;
+    setStatus("Speichere …");
     try {
-      await saveLibrary(updated);
-      setStatus("Gespeichert ✓");
+      await saveLibrary(lib);
+      setSaveFailed(false);
+      setStatus(pendingChanges.current ? "Änderungen …" : "Gespeichert ✓");
     } catch (e) {
+      pendingChanges.current = true;
       setSaveFailed(true);
       setStatus(`Speichern fehlgeschlagen: ${String(e)}`);
+    } finally {
+      saving.current = false;
+      if (dirty.current) {
+        dirty.current = false;
+        flushSave();
+      }
     }
   }
 
@@ -93,6 +171,33 @@ export default function App() {
       return;
     }
     login();
+  }
+
+  // Zutaten eines Rezepts auf die Einkaufsliste setzen (gibt die Anzahl neuer Einträge zurück)
+  function addToShopping(recipe: Recipe): number {
+    if (!library) return 0;
+    const open = new Set(
+      library.shopping.filter((s) => !s.done).map((s) => s.text.toLowerCase())
+    );
+    const fresh: ShoppingItem[] = [];
+    for (const ing of recipe.ingredients) {
+      const text = [ing.amount, ing.unit, ing.name]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      if (!text || open.has(text.toLowerCase())) continue;
+      open.add(text.toLowerCase());
+      fresh.push({
+        id: crypto.randomUUID(),
+        text,
+        done: false,
+        recipeTitle: recipe.title,
+      });
+    }
+    if (fresh.length > 0) {
+      updateLibrary({ ...library, shopping: [...library.shopping, ...fresh] });
+    }
+    return fresh.length;
   }
 
   function exportJson() {
@@ -149,9 +254,12 @@ export default function App() {
 
   return (
     <div className="container">
-      <h1>Meine Bibliothek</h1>
+      <div className="row" style={{ alignItems: "center" }}>
+        <h1 style={{ margin: 0 }}>Meine Bibliothek</h1>
+        <button onClick={handleLogout}>Abmelden</button>
+      </div>
 
-      <div className="tabs">
+      <div className="tabs" style={{ marginTop: 12 }}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -170,11 +278,21 @@ export default function App() {
         )}
       </p>
 
+      {tab === "home" && (
+        <Home
+          library={library}
+          onChange={updateLibrary}
+          addToShopping={addToShopping}
+        />
+      )}
+
       {tab === "recipes" && (
         <Recipes
           recipes={library.recipes}
           categories={library.settings.recipeCategories}
           onChange={(recipes) => updateLibrary({ ...library, recipes })}
+          onAddToShopping={addToShopping}
+          onGoHome={() => setTab("home")}
         />
       )}
 
@@ -183,6 +301,13 @@ export default function App() {
           places={library.places}
           labels={library.settings.placeLabels}
           onChange={(places) => updateLibrary({ ...library, places })}
+        />
+      )}
+
+      {tab === "calendar" && (
+        <Calendar
+          library={library}
+          onChange={(events) => updateLibrary({ ...library, events })}
         />
       )}
 

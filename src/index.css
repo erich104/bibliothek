@@ -348,3 +348,83 @@ details.settings-group > summary {
   border-bottom: none;
   margin-bottom: 4px;
 }
+
+/* ---- Startseite ---- */
+
+.home-section {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.home-section h3 {
+  margin-top: 0;
+}
+
+.pick {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* ---- Kalender ---- */
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-dow {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.cal-cell {
+  min-height: 52px;
+  margin-top: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cal-cell.today {
+  border-color: #2f6f4f;
+  font-weight: 700;
+}
+
+.cal-cell.selected {
+  background: #2f6f4f;
+  color: #fff;
+  border-color: #2f6f4f;
+}
+
+.cal-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}

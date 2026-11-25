@@ -9,6 +9,7 @@ let accessToken: string | null = null;
 let tokenExpiresAt = 0;
 let fileId: string | null = null;
 let loginError: string | null = null;
+let useChooser = false;
 
 // Adresse, zu der Google nach der Anmeldung zurückkehrt
 function redirectUri(): string {
@@ -27,7 +28,26 @@ export function login(): void {
     state,
     include_granted_scopes: "true",
   });
+  if (useChooser) params.set("prompt", "select_account");
   window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+// Abmelden: Token vergessen und bei Google ungültig machen
+export function logout(): void {
+  const token = accessToken;
+  accessToken = null;
+  tokenExpiresAt = 0;
+  fileId = null;
+  useChooser = true; // beim nächsten Anmelden das Konto neu auswählen lassen
+  if (token) {
+    fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `token=${encodeURIComponent(token)}`,
+    }).catch(() => {
+      // Fehler sind hier egal, das Token läuft ohnehin nach einer Stunde ab
+    });
+  }
 }
 
 // Beim Start der Seite: Kommen wir gerade von der Google-Anmeldung zurück?

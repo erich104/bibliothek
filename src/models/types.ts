@@ -58,6 +58,23 @@ export type Contract = {
   createdAt: string;
 };
 
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  date: string; // "JJJJ-MM-TT"
+  endDate?: string; // bei mehrtägigen Terminen
+  time?: string; // "HH:MM"
+  notes?: string;
+  createdAt: string;
+};
+
+export type ShoppingItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  recipeTitle?: string; // aus welchem Rezept die Zutat stammt
+};
+
 export type Settings = {
   recipeCategories: string[];
   placeLabels: PlaceLabel[];
@@ -69,6 +86,8 @@ export type Library = {
   places: Place[];
   todos: Todo[];
   contracts: Contract[];
+  events: CalendarEvent[];
+  shopping: ShoppingItem[];
   settings: Settings;
 };
 
@@ -96,6 +115,8 @@ export function emptyLibrary(): Library {
     places: [],
     todos: [],
     contracts: [],
+    events: [],
+    shopping: [],
     settings: {
       recipeCategories: [...DEFAULT_RECIPE_CATEGORIES],
       placeLabels: DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
@@ -116,6 +137,8 @@ export function normalizeLibrary(
     places: Array.isArray(d.places) ? d.places : [],
     todos: Array.isArray(d.todos) ? d.todos : [],
     contracts: Array.isArray(d.contracts) ? d.contracts : [],
+    events: Array.isArray(d.events) ? d.events : [],
+    shopping: Array.isArray(d.shopping) ? d.shopping : [],
     settings: {
       recipeCategories: Array.isArray(categories)
         ? categories
