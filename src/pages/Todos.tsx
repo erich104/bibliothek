@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import type { Todo } from "../models/types";
-import { formatDate, todayIso } from "../utils/format";
+import { daysUntil, formatDate, todayIso } from "../utils/format";
 
 type Props = {
   todos: Todo[];
@@ -56,8 +56,11 @@ export default function Todos({ todos, onChange }: Props) {
 
   function renderItem(t: Todo) {
     const overdue = !t.done && t.dueDate && t.dueDate < today;
+    const days = !t.done && t.dueDate ? daysUntil(t.dueDate) : null;
+    const urgency =
+      days === null ? "" : days <= 3 ? " due-urgent" : days <= 7 ? " due-soon" : "";
     return (
-      <li className="todo-item" key={t.id}>
+      <li className={`todo-item${urgency}`} key={t.id}>
         <input
           type="checkbox"
           checked={t.done}

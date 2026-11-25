@@ -178,9 +178,10 @@ export default function App() {
         />
       )}
 
-            {tab === "travel" && (
+      {tab === "travel" && (
         <Travel
           places={library.places}
+          labels={library.settings.placeLabels}
           onChange={(places) => updateLibrary({ ...library, places })}
         />
       )}

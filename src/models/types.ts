@@ -14,6 +14,11 @@ export type Recipe = {
   createdAt: string;
 };
 
+export type PlaceLabel = {
+  name: string;
+  color: string; // z. B. "#2e8b57"
+};
+
 export type Place = {
   id: string;
   name: string;
@@ -21,8 +26,10 @@ export type Place = {
   lat: number;
   lng: number;
   status: "visited" | "wishlist";
+  labels?: string[]; // Namen der Labels
+  mainLabel?: string; // bestimmt die Pin-Farbe
+  highlight?: boolean; // goldener Rand
   date?: string;
-  category?: string;
   notes?: string;
   link?: string;
   createdAt: string;
@@ -53,6 +60,7 @@ export type Contract = {
 
 export type Settings = {
   recipeCategories: string[];
+  placeLabels: PlaceLabel[];
 };
 
 export type Library = {
@@ -72,6 +80,15 @@ export const DEFAULT_RECIPE_CATEGORIES = [
   "Getränk",
 ];
 
+export const DEFAULT_PLACE_LABELS: PlaceLabel[] = [
+  { name: "Klettersteig", color: "#c0392b" },
+  { name: "Wanderung", color: "#2e8b57" },
+  { name: "Sonnenaufgang", color: "#f39c12" },
+  { name: "Stadt", color: "#3b82f6" },
+  { name: "Strand", color: "#06b6d4" },
+  { name: "Essen & Trinken", color: "#8e44ad" },
+];
+
 export function emptyLibrary(): Library {
   return {
     version: 1,
@@ -79,7 +96,10 @@ export function emptyLibrary(): Library {
     places: [],
     todos: [],
     contracts: [],
-    settings: { recipeCategories: [...DEFAULT_RECIPE_CATEGORIES] },
+    settings: {
+      recipeCategories: [...DEFAULT_RECIPE_CATEGORIES],
+      placeLabels: DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
+    },
   };
 }
 
@@ -89,6 +109,7 @@ export function normalizeLibrary(
 ): Library {
   const d: Partial<Library> = data ?? {};
   const categories = d.settings?.recipeCategories;
+  const labels = d.settings?.placeLabels;
   return {
     version: 1,
     recipes: Array.isArray(d.recipes) ? d.recipes : [],
@@ -99,6 +120,9 @@ export function normalizeLibrary(
       recipeCategories: Array.isArray(categories)
         ? categories
         : [...DEFAULT_RECIPE_CATEGORIES],
+      placeLabels: Array.isArray(labels)
+        ? labels
+        : DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
     },
   };
 }
