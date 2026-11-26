@@ -1,0 +1,16 @@
+{
+  "name": "Meine Bibliothek",
+  "short_name": "Bibliothek",
+  "description": "Rezepte, Reisen, Kalender, Aufgaben und Verträge an einem Ort",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fafaf7",
+  "theme_color": "#2f6f4f",
+  "lang": "de",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

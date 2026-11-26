@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import type { Library, Recipe, ShoppingItem } from "../models/types";
-import { itemsBetween, KIND_COLOR, KIND_LABEL } from "../utils/calendarItems";
+import { itemsBetween, KIND_LABEL } from "../utils/calendarItems";
 import {
   addDays,
   daysUntil,
@@ -207,7 +207,7 @@ export default function Home({ library, onChange, addToShopping }: Props) {
                 ) : (
                   <span
                     className="pin-dot"
-                    style={{ background: KIND_COLOR[it.kind] }}
+                    style={{ background: it.color }}
                   />
                 )}
                 <span style={{ flex: 1 }}>

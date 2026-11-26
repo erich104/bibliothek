@@ -34,7 +34,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "calendar", label: "Kalender" },
   { id: "todos", label: "To-Do" },
   { id: "contracts", label: "Verträge" },
-  { id: "settings", label: "Einstellungen" },
+  { id: "settings", label: "Konfiguration" },
 ];
 
 export default function App() {
@@ -326,17 +326,14 @@ export default function App() {
       )}
 
       {tab === "settings" && (
-        <SettingsPage library={library} onChange={updateLibrary} />
+          <SettingsPage
+          library={library}
+          onChange={updateLibrary}
+          onExport={exportJson}
+          onImport={importJson}
+        />
       )}
 
-      <hr />
-      <div className="row">
-        <button onClick={exportJson}>Backup exportieren</button>
-        <label className="filebutton">
-          Backup importieren
-          <input type="file" accept=".json" onChange={importJson} hidden />
-        </label>
       </div>
-    </div>
   );
 }

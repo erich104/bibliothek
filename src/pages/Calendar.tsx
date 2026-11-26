@@ -1,9 +1,15 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { CalendarEvent, Library } from "../models/types";
+import type {
+  CalendarEvent,
+  EventCategory,
+  Library,
+  RepeatUnit,
+} from "../models/types";
 import { itemsBetween, KIND_COLOR, KIND_LABEL } from "../utils/calendarItems";
 import type { CalendarItem } from "../utils/calendarItems";
 import { formatDateLong, parseIso, todayIso, toIso } from "../utils/format";
+import { safeColor } from "../utils/colors";
 
 const MONTHS = [
   "Januar",
@@ -21,6 +27,13 @@ const MONTHS = [
 ];
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
+const UNIT_NAME: Record<RepeatUnit, string> = {
+  day: "Tag(e)",
+  week: "Woche(n)",
+  month: "Monat(e)",
+  year: "Jahr(e)",
+};
+
 type Props = {
   library: Library;
   onChange: (events: CalendarEvent[]) => void;
@@ -33,6 +46,10 @@ export default function Calendar({ library, onChange }: Props) {
   const [month, setMonth] = useState(now.getMonth());
   const [selected, setSelected] = useState(today);
   const [editing, setEditing] = useState<CalendarEvent | "new" | null>(null);
+  const [template, setTemplate] = useState<Partial<CalendarEvent> | null>(null);
+  const [formKey, setFormKey] = useState(0);
+
+  const categories = library.settings.eventCategories;
 
   function goTo(y: number, m: number) {
     const d = new Date(y, m, 1);
@@ -44,7 +61,7 @@ export default function Calendar({ library, onChange }: Props) {
     setSelected(isCurrent ? toIso(t) : toIso(d));
   }
 
-  function saveEvent(ev: CalendarEvent) {
+  function saveEvent(ev: CalendarEvent, again: boolean) {
     const exists = library.events.some((e) => e.id === ev.id);
     onChange(
       exists
@@ -55,11 +72,25 @@ export default function Calendar({ library, onChange }: Props) {
     setYear(d.getFullYear());
     setMonth(d.getMonth());
     setSelected(ev.date);
-    setEditing(null);
+    if (again) {
+      // Neues Formular mit übernommenem Titel, Kategorie und Uhrzeit
+      setTemplate({
+        title: ev.title,
+        category: ev.category,
+        time: ev.time,
+        date: ev.date,
+      });
+      setFormKey((k) => k + 1);
+      setEditing("new");
+    } else {
+      setEditing(null);
+    }
   }
 
   function removeEvent(id: string) {
-    if (!confirm("Termin wirklich löschen?")) return;
+    if (!confirm("Termin wirklich löschen? Bei Wiederholungen werden alle gelöscht.")) {
+      return;
+    }
     onChange(library.events.filter((e) => e.id !== id));
     setEditing(null);
   }
@@ -68,7 +99,10 @@ export default function Calendar({ library, onChange }: Props) {
     const existing = editing === "new" ? undefined : editing;
     return (
       <EventForm
+        key={formKey}
         initial={existing}
+        template={existing ? null : template}
+        categories={categories}
         defaultDate={selected}
         onSave={saveEvent}
         onCancel={() => setEditing(null)}
@@ -101,6 +135,13 @@ export default function Calendar({ library, onChange }: Props) {
 
   const dayItems = byDate.get(selected) ?? [];
 
+  const legend = [
+    ...categories.map((c) => ({ label: c.name, color: safeColor(c.color) })),
+    { label: KIND_LABEL.todo, color: KIND_COLOR.todo },
+    { label: KIND_LABEL.contract, color: KIND_COLOR.contract },
+    { label: KIND_LABEL.place, color: KIND_COLOR.place },
+  ];
+
   return (
     <div>
       <div className="cal-head">
@@ -131,7 +172,7 @@ export default function Calendar({ library, onChange }: Props) {
         {cells.map((iso, i) => {
           if (!iso) return <div key={`e${i}`} />;
           const list = byDate.get(iso) ?? [];
-          const kinds = Array.from(new Set(list.map((x) => x.kind))).slice(0, 4);
+          const colors = Array.from(new Set(list.map((x) => x.color))).slice(0, 4);
           const cls = [
             "cal-cell",
             iso === today ? "today" : "",
@@ -143,12 +184,8 @@ export default function Calendar({ library, onChange }: Props) {
             <button key={iso} className={cls} onClick={() => setSelected(iso)}>
               {Number(iso.slice(8))}
               <span className="cal-dots">
-                {kinds.map((k) => (
-                  <span
-                    key={k}
-                    className="cal-dot"
-                    style={{ background: KIND_COLOR[k] }}
-                  />
+                {colors.map((c) => (
+                  <span key={c} className="cal-dot" style={{ background: c }} />
                 ))}
               </span>
             </button>
@@ -157,10 +194,10 @@ export default function Calendar({ library, onChange }: Props) {
       </div>
 
       <p className="muted legend">
-        {(Object.keys(KIND_LABEL) as (keyof typeof KIND_LABEL)[]).map((k) => (
-          <span className="legend-item" key={k}>
-            <span className="pin-dot" style={{ background: KIND_COLOR[k] }} />
-            {KIND_LABEL[k]}
+        {legend.map((l) => (
+          <span className="legend-item" key={l.label}>
+            <span className="pin-dot" style={{ background: l.color }} />
+            {l.label}
           </span>
         ))}
       </p>
@@ -168,7 +205,14 @@ export default function Calendar({ library, onChange }: Props) {
       <div className="home-section">
         <div className="row">
           <h3 style={{ margin: 0 }}>{formatDateLong(selected)}</h3>
-          <button className="primary" onClick={() => setEditing("new")}>
+          <button
+            className="primary"
+            onClick={() => {
+              setTemplate(null);
+              setFormKey((k) => k + 1);
+              setEditing("new");
+            }}
+          >
             + Termin
           </button>
         </div>
@@ -185,14 +229,15 @@ export default function Calendar({ library, onChange }: Props) {
                 : undefined;
             return (
               <li className="todo-item" key={it.key}>
-                <span
-                  className="pin-dot"
-                  style={{ background: KIND_COLOR[it.kind] }}
-                />
+                <span className="pin-dot" style={{ background: it.color }} />
                 <span className={it.done ? "done" : ""} style={{ flex: 1 }}>
                   {it.time ? `${it.time} · ` : ""}
                   {it.title}
-                  <span className="muted"> · {KIND_LABEL[it.kind]}</span>
+                  <span className="muted">
+                    {" "}
+                    · {it.category ?? KIND_LABEL[it.kind]}
+                    {it.repeats ? " · ↻" : ""}
+                  </span>
                   {it.detail && (
                     <div className="muted" style={{ whiteSpace: "pre-wrap" }}>
                       {it.detail}
@@ -211,44 +256,85 @@ export default function Calendar({ library, onChange }: Props) {
 
 type FormProps = {
   initial?: CalendarEvent;
+  template: Partial<CalendarEvent> | null;
+  categories: EventCategory[];
   defaultDate: string;
-  onSave: (ev: CalendarEvent) => void;
+  onSave: (ev: CalendarEvent, again: boolean) => void;
   onCancel: () => void;
   onDelete?: () => void;
 };
 
 function EventForm({
   initial,
+  template,
+  categories,
   defaultDate,
   onSave,
   onCancel,
   onDelete,
 }: FormProps) {
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [date, setDate] = useState(initial?.date ?? defaultDate);
-  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
-  const [time, setTime] = useState(initial?.time ?? "");
-  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const base: Partial<CalendarEvent> | undefined = initial ?? template ?? undefined;
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  const [title, setTitle] = useState(base?.title ?? "");
+  const [category, setCategory] = useState(base?.category ?? "");
+  const [date, setDate] = useState(initial?.date ?? template?.date ?? defaultDate);
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
+  const [time, setTime] = useState(base?.time ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [repeatUnit, setRepeatUnit] = useState<RepeatUnit | "none">(
+    initial?.repeat?.unit ?? "none"
+  );
+  const [every, setEvery] = useState(String(initial?.repeat?.every ?? 1));
+  const [until, setUntil] = useState(initial?.repeat?.until ?? "");
+
+  // Falls die Kategorie des Termins inzwischen gelöscht wurde, bleibt sie hier auswählbar
+  const options =
+    category && !categories.some((c) => c.name === category)
+      ? [{ name: category, color: "" }, ...categories]
+      : categories;
+
+  function build(): CalendarEvent | null {
     if (!title.trim() || !date) {
       alert("Bitte gib einen Titel und ein Datum ein.");
-      return;
+      return null;
     }
     if (endDate && endDate < date) {
       alert("Das Enddatum liegt vor dem Startdatum.");
-      return;
+      return null;
     }
-    onSave({
+    if (repeatUnit !== "none" && until && until < date) {
+      alert("Das Ende der Wiederholung liegt vor dem Startdatum.");
+      return null;
+    }
+    return {
       id: initial?.id ?? crypto.randomUUID(),
       title: title.trim(),
+      category: category || undefined,
       date,
       endDate: endDate || undefined,
       time: time || undefined,
       notes: notes.trim() || undefined,
+      repeat:
+        repeatUnit === "none"
+          ? undefined
+          : {
+              unit: repeatUnit,
+              every: Math.max(1, Math.floor(Number(every)) || 1),
+              until: until || undefined,
+            },
       createdAt: initial?.createdAt ?? new Date().toISOString(),
-    });
+    };
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const ev = build();
+    if (ev) onSave(ev, false);
+  }
+
+  function handleSaveAndNew() {
+    const ev = build();
+    if (ev) onSave(ev, true);
   }
 
   return (
@@ -258,6 +344,18 @@ function EventForm({
       <label>
         Titel *
         <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      </label>
+
+      <label>
+        Kategorie
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">– keine –</option>
+          {options.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </select>
       </label>
 
       <div className="row">
@@ -287,6 +385,48 @@ function EventForm({
         </label>
       </div>
 
+      <div className="row">
+        <label>
+          Wiederholung
+          <select
+            value={repeatUnit}
+            onChange={(e) => setRepeatUnit(e.target.value as RepeatUnit | "none")}
+          >
+            <option value="none">Einmalig</option>
+            <option value="day">Täglich</option>
+            <option value="week">Wöchentlich</option>
+            <option value="month">Monatlich</option>
+            <option value="year">Jährlich (z. B. Geburtstag)</option>
+          </select>
+        </label>
+        {repeatUnit !== "none" && (
+          <>
+            <label>
+              Alle … {UNIT_NAME[repeatUnit]}
+              <input
+                type="number"
+                min="1"
+                value={every}
+                onChange={(e) => setEvery(e.target.value)}
+              />
+            </label>
+            <label>
+              Wiederholen bis (optional)
+              <input
+                type="date"
+                value={until}
+                onChange={(e) => setUntil(e.target.value)}
+              />
+            </label>
+          </>
+        )}
+      </div>
+      <p className="muted">
+        Für unregelmäßige Termine (z. B. Arzttermine) lege einfach mehrere
+        einzelne Termine an. Bei wiederholten Terminen gelten Änderungen für alle
+        Wiederholungen.
+      </p>
+
       <label>
         Notizen
         <textarea
@@ -300,6 +440,11 @@ function EventForm({
         <button type="submit" className="primary">
           Speichern
         </button>
+        {!initial && (
+          <button type="button" onClick={handleSaveAndNew}>
+            Speichern und weiteren Termin
+          </button>
+        )}
         <button type="button" onClick={onCancel}>
           Abbrechen
         </button>

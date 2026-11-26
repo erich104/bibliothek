@@ -35,10 +35,13 @@ export type Place = {
   createdAt: string;
 };
 
+export type TodoPriority = "urgent" | "soon" | "normal";
+
 export type Todo = {
   id: string;
   text: string;
   done: boolean;
+  priority?: TodoPriority; // fehlt = "normal"
   dueDate?: string; // "JJJJ-MM-TT"
   createdAt: string;
 };
@@ -58,12 +61,27 @@ export type Contract = {
   createdAt: string;
 };
 
+export type EventCategory = {
+  name: string;
+  color: string;
+};
+
+export type RepeatUnit = "day" | "week" | "month" | "year";
+
+export type Repeat = {
+  unit: RepeatUnit;
+  every: number; // alle n Einheiten
+  until?: string; // letztes Datum der Wiederholung
+};
+
 export type CalendarEvent = {
   id: string;
   title: string;
+  category?: string; // Name der Kategorie
   date: string; // "JJJJ-MM-TT"
   endDate?: string; // bei mehrtägigen Terminen
   time?: string; // "HH:MM"
+  repeat?: Repeat;
   notes?: string;
   createdAt: string;
 };
@@ -78,6 +96,7 @@ export type ShoppingItem = {
 export type Settings = {
   recipeCategories: string[];
   placeLabels: PlaceLabel[];
+  eventCategories: EventCategory[];
 };
 
 export type Library = {
@@ -108,6 +127,14 @@ export const DEFAULT_PLACE_LABELS: PlaceLabel[] = [
   { name: "Essen & Trinken", color: "#8e44ad" },
 ];
 
+export const DEFAULT_EVENT_CATEGORIES: EventCategory[] = [
+  { name: "Privat", color: "#2f6f4f" },
+  { name: "Arzt", color: "#dc2626" },
+  { name: "Geburtstag", color: "#db2777" },
+  { name: "Arbeit", color: "#0891b2" },
+  { name: "Sonstiges", color: "#6b7280" },
+];
+
 export function emptyLibrary(): Library {
   return {
     version: 1,
@@ -120,6 +147,7 @@ export function emptyLibrary(): Library {
     settings: {
       recipeCategories: [...DEFAULT_RECIPE_CATEGORIES],
       placeLabels: DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
+      eventCategories: DEFAULT_EVENT_CATEGORIES.map((c) => ({ ...c })),
     },
   };
 }
@@ -131,6 +159,7 @@ export function normalizeLibrary(
   const d: Partial<Library> = data ?? {};
   const categories = d.settings?.recipeCategories;
   const labels = d.settings?.placeLabels;
+  const eventCats = d.settings?.eventCategories;
   return {
     version: 1,
     recipes: Array.isArray(d.recipes) ? d.recipes : [],
@@ -146,6 +175,9 @@ export function normalizeLibrary(
       placeLabels: Array.isArray(labels)
         ? labels
         : DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
+      eventCategories: Array.isArray(eventCats)
+        ? eventCats
+        : DEFAULT_EVENT_CATEGORIES.map((c) => ({ ...c })),
     },
   };
 }

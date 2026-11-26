@@ -1,24 +1,41 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { Todo } from "../models/types";
+import type { Todo, TodoPriority } from "../models/types";
 import { daysUntil, formatDate, todayIso } from "../utils/format";
 
-type Props = {
-  todos: Todo[];
-  onChange: (todos: Todo[]) => void;
+const LABEL: Record<TodoPriority, string> = {
+  urgent: "Dringend",
+  soon: "Zeitnah",
+  normal: "Nicht dringend",
+};
+const ORDER: Record<TodoPriority, number> = { urgent: 0, soon: 1, normal: 2 };
+const NEXT: Record<TodoPriority, TodoPriority> = {
+  normal: "soon",
+  soon: "urgent",
+  urgent: "normal",
 };
 
-// Offene Aufgaben: erst mit Datum (frühestes zuerst), dann ohne Datum
-function byDue(a: Todo, b: Todo) {
+const prioOf = (t: Todo): TodoPriority => t.priority ?? "normal";
+
+// Offene Aufgaben: erst nach Priorität, dann nach Datum (frühestes zuerst)
+function byPriorityThenDue(a: Todo, b: Todo) {
+  const p = ORDER[prioOf(a)] - ORDER[prioOf(b)];
+  if (p !== 0) return p;
   if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
   if (a.dueDate) return -1;
   if (b.dueDate) return 1;
   return a.createdAt.localeCompare(b.createdAt);
 }
 
+type Props = {
+  todos: Todo[];
+  onChange: (todos: Todo[]) => void;
+};
+
 export default function Todos({ todos, onChange }: Props) {
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState<TodoPriority>("normal");
   const today = todayIso();
 
   function addTodo(e: FormEvent) {
@@ -30,16 +47,26 @@ export default function Todos({ todos, onChange }: Props) {
         id: crypto.randomUUID(),
         text: text.trim(),
         done: false,
+        priority,
         dueDate: dueDate || undefined,
         createdAt: new Date().toISOString(),
       },
     ]);
     setText("");
     setDueDate("");
+    setPriority("normal");
   }
 
   function toggle(id: string) {
     onChange(todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  }
+
+  function cyclePriority(id: string) {
+    onChange(
+      todos.map((t) =>
+        t.id === id ? { ...t, priority: NEXT[prioOf(t)] } : t
+      )
+    );
   }
 
   function remove(id: string) {
@@ -51,7 +78,7 @@ export default function Todos({ todos, onChange }: Props) {
     onChange(todos.filter((t) => !t.done));
   }
 
-  const open = todos.filter((t) => !t.done).sort(byDue);
+  const open = todos.filter((t) => !t.done).sort(byPriorityThenDue);
   const done = todos.filter((t) => t.done);
 
   function renderItem(t: Todo) {
@@ -59,6 +86,7 @@ export default function Todos({ todos, onChange }: Props) {
     const days = !t.done && t.dueDate ? daysUntil(t.dueDate) : null;
     const urgency =
       days === null ? "" : days <= 3 ? " due-urgent" : days <= 7 ? " due-soon" : "";
+    const p = prioOf(t);
     return (
       <li className={`todo-item${urgency}`} key={t.id}>
         <input
@@ -66,6 +94,14 @@ export default function Todos({ todos, onChange }: Props) {
           checked={t.done}
           onChange={() => toggle(t.id)}
         />
+        <button
+          className={`prio-btn ${p}`}
+          title={`${LABEL[p]} (anklicken zum Ändern)`}
+          aria-label={`Priorität: ${LABEL[p]}`}
+          onClick={() => cyclePriority(t.id)}
+        >
+          !
+        </button>
         <span className={t.done ? "done" : ""} style={{ flex: 1 }}>
           {t.text}
           {t.dueDate && (
@@ -83,21 +119,32 @@ export default function Todos({ todos, onChange }: Props) {
 
   return (
     <div>
-      <form className="row" onSubmit={addTodo}>
-        <input
-          placeholder="Neue Aufgabe …"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          style={{ maxWidth: 170, flex: "0 0 auto" }}
-        />
-        <button type="submit" className="primary">
-          + Hinzufügen
-        </button>
+      <form onSubmit={addTodo}>
+        <div className="row">
+          <input
+            placeholder="Neue Aufgabe …"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button type="submit" className="primary">
+            + Hinzufügen
+          </button>
+        </div>
+        <div className="row">
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as TodoPriority)}
+          >
+            <option value="normal">Nicht dringend</option>
+            <option value="soon">Zeitnah</option>
+            <option value="urgent">Dringend</option>
+          </select>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </div>
       </form>
 
       {todos.length === 0 && (

@@ -43,3 +43,21 @@ export function daysUntil(iso: string): number {
   const today = parseIso(todayIso()).getTime();
   return Math.round((target - today) / 86400000);
 }
+
+// Datum um n Monate verschieben; der Tag bleibt erhalten, soweit möglich (31. -> Monatsende)
+export function addMonths(iso: string, months: number): string {
+  const d = parseIso(iso);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return toIso(d);
+}
+
+// Anzahl Tage von a bis b (negativ, wenn b vor a liegt)
+export function diffDays(a: string, b: string): number {
+  return Math.round(
+    (parseIso(b).getTime() - parseIso(a).getTime()) / 86400000
+  );
+}
