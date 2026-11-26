@@ -12,6 +12,8 @@ import {
 } from "../utils/format";
 import { distanceKm, formatKm } from "../utils/geo";
 import { placeColor } from "../utils/colors";
+import { openPriceChecks } from "../utils/priceChecks";
+import PriceCheckRow from "../components/PriceCheckRow";
 
 type Props = {
   library: Library;
@@ -45,8 +47,14 @@ export default function Home({ library, onChange, addToShopping }: Props) {
 
   const soonLimit = addDays(today, 7);
   const upcoming = itemsBetween(library, today, addDays(today, 30))
+    .filter((it) => it.kind !== "pricecheck")
     .filter((it) => !(it.kind === "todo" && it.done))
     .filter((it) => it.date <= soonLimit || it.kind === "contract");
+
+  // Preisprüfungen: überfällige und die der nächsten 30 Tage
+  const priceChecks = openPriceChecks(library).filter(
+    (c) => c.date <= addDays(today, 30)
+  );
 
   function toggleTodo(id: string) {
     onChange({
@@ -57,6 +65,26 @@ export default function Home({ library, onChange, addToShopping }: Props) {
     });
   }
 
+      {/* Preise prüfen */}
+      {priceChecks.length > 0 && (
+        <div className="home-section">
+          <h3>Preise prüfen</h3>
+          <ul className="todo-list">
+            {priceChecks.map((c) => (
+              <li className="todo-item" key={c.key}>
+                <PriceCheckRow
+                  contract={c.contract}
+                  date={c.date}
+                  manualId={c.manualId}
+                  library={library}
+                  onChange={onChange}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+  
   // ---------- Einkaufsliste ----------
   const shopping = library.shopping;
   const [text, setText] = useState("");

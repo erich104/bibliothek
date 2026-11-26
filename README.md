@@ -24,15 +24,17 @@ Läuft im Browser und lässt sich als App auf Handy, Tablet und Laptop installie
 - **Kalender**: Monatsansicht, eigene Termine (mehrtägig, Uhrzeit), **Wiederholungen** (täglich bis jährlich, alle n Einheiten,
   optional mit Ende), **Kategorien mit Farben**, zeigt auch To-Dos, Kündigungsfristen und Reisedaten
 - **To-Do**: Fälligkeit, **Priorität** (Dringend/Zeitnah/Nicht dringend), Hervorhebung nach Dringlichkeit
-- **Verträge/Abos**: Kosten, Zahlweise, Laufzeit, Kündigungsfrist, Summe pro Monat/Jahr
+- **Verträge/Abos**: Kosten, Abbuchungsmonate, Kostengruppe, Preisverlauf, Laufzeit, Kündigungsfrist, Summe pro Monat/Jahr;
+  automatische **Preisprüfung alle 6 Monate** (Kalendertermin und Startseite mit Bestätigen/Betrag ändern, auch von Hand anlegbar)
+- **Kosten**: Jahresübersicht, 12 Monatskarten, Vorlage mit Überschreiben pro Monat (Gehalt, Sonstige Einnahmen, Kostengruppen),
+  Vertragskosten werden automatisch in den Abbuchungsmonaten eingerechnet
 - **Konfiguration**: Kategorien (Rezepte, Kalender), Labels mit Farben (Reisen), Backup Export/Import (alles in einer Datei)
 - Anmeldung mit Google (Weiterleitung), Speichern in Google Drive (gebündelt), Abmelden-Knopf
 - **PWA**: App-Symbol, Vollbild, schneller Start, Oberfläche auch ohne Netz
 
 ### Geplant
 
-1. **Kostenübersicht**: Monatsplanung (Gehalt, Kostengruppen), Vertragskosten automatisch,
-   Abbuchungsmonate, Preisprüfung alle 6 Monate (als Kalendertermin mit Bestätigen)
+
 2. Neuer Name
 3. Rezept-Import per Link (braucht eine kleine Zwischenstation, z. B. Cloudflare Worker)
 4. Offline-Lesemodus (lokale Kopie der Daten, bewusste Entscheidung nötig)
@@ -55,9 +57,9 @@ Läuft im Browser und lässt sich als App auf Handy, Tablet und Laptop installie
 src/
   models/types.ts            Datentypen, Standardwerte, normalizeLibrary()
   storage/driveStorage.ts    ALLES rund um Google Drive und Anmeldung (login, logout, loadLibrary, saveLibrary)
-  utils/                     format (Datum), colors, geo, geocode, image, mapIcons, calendarItems
-  components/                RecipeForm, PlaceForm, MapFlyTo
-  pages/                     Home, Recipes, Travel, Calendar, Todos, Contracts, SettingsPage (= Konfiguration)
+  utils/                     format (Datum), colors, geo, geocode, image, mapIcons, calendarItems, costs, priceChecks
+  components/                RecipeForm, PlaceForm, MapFlyTo, AmountInput, PriceCheckRow
+  pages/                     Home, Recipes, Travel, Calendar, Todos, Contracts, Costs, SettingsPage (= Konfiguration)
   App.tsx                    Anmeldung, Reiter, zentrales gebündeltes Speichern, Backup-Funktionen
   index.css                  Styles inkl. Druckansicht
 public/                      Symbole, manifest.webmanifest, sw.js
@@ -73,8 +75,8 @@ Alles steckt in einer Datei `bibliothek.json`:
 
 ```
 {
-  version, recipes[], places[], todos[], contracts[], events[], shopping[],
-  settings: { recipeCategories[], placeLabels[], eventCategories[] }
+  version, recipes[], places[], todos[], contracts[], priceChecks[], budget{template, months}, events[], shopping[],
+  settings: { recipeCategories[], placeLabels[], eventCategories[], costGroups[] }
 }
 ```
 

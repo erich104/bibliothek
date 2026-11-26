@@ -48,16 +48,35 @@ export type Todo = {
 
 export type ContractInterval = "monthly" | "quarterly" | "yearly";
 
+// Preisänderung, gilt ab dem Monat "from" ("JJJJ-MM")
+export type PriceChange = {
+  from: string;
+  cost: number;
+};
+
 export type Contract = {
   id: string;
   name: string;
   provider?: string;
   type: string; // Abo, Versicherung, Vertrag, ...
-  cost?: number; // pro Zahlung, in Euro
-  interval: ContractInterval;
+  cost?: number; // Grundpreis pro Abbuchung, in Euro
+  priceChanges?: PriceChange[]; // spätere Preisänderungen
+  months: number[]; // Abbuchungsmonate (1 bis 12)
+  interval?: ContractInterval; // veraltet, nur zum Übernehmen alter Daten
+  costGroup?: string; // Kostengruppe in der Kostenübersicht
+  lastPriceCheck?: string; // "JJJJ-MM-TT"
+  cancelled?: boolean; // gekündigt: keine Kosten nach "Läuft bis"
   runsUntil?: string; // "JJJJ-MM-TT"
   cancelBy?: string; // "JJJJ-MM-TT"
   notes?: string;
+  createdAt: string;
+};
+
+// Von Hand angelegte Preisprüfung für ein Datum
+export type PriceCheck = {
+  id: string;
+  contractId: string;
+  date: string; // "JJJJ-MM-TT"
   createdAt: string;
 };
 
@@ -93,10 +112,23 @@ export type ShoppingItem = {
   recipeTitle?: string; // aus welchem Rezept die Zutat stammt
 };
 
+// Plan für einen Monat: leere Felder übernehmen die Vorlage
+export type MonthPlan = {
+  salary?: number;
+  otherIncome?: number;
+  expenses?: Record<string, number>; // je Kostengruppe, ohne Verträge
+};
+
+export type Budget = {
+  template: MonthPlan; // gilt für alle Monate
+  months: Record<string, MonthPlan>; // Überschreibungen je Monat ("JJJJ-MM")
+};
+
 export type Settings = {
   recipeCategories: string[];
   placeLabels: PlaceLabel[];
   eventCategories: EventCategory[];
+  costGroups: string[];
 };
 
 export type Library = {
@@ -105,6 +137,8 @@ export type Library = {
   places: Place[];
   todos: Todo[];
   contracts: Contract[];
+  priceChecks: PriceCheck[];
+  budget: Budget;
   events: CalendarEvent[];
   shopping: ShoppingItem[];
   settings: Settings;
@@ -135,6 +169,15 @@ export const DEFAULT_EVENT_CATEGORIES: EventCategory[] = [
   { name: "Sonstiges", color: "#6b7280" },
 ];
 
+export const DEFAULT_COST_GROUPS = [
+  "Miete",
+  "Essen",
+  "Mobilität",
+  "Versicherungen",
+  "Freizeit",
+  "Sonstiges",
+];
+
 export function emptyLibrary(): Library {
   return {
     version: 1,
@@ -142,14 +185,24 @@ export function emptyLibrary(): Library {
     places: [],
     todos: [],
     contracts: [],
+    priceChecks: [],
+    budget: { template: {}, months: {} },
     events: [],
     shopping: [],
     settings: {
       recipeCategories: [...DEFAULT_RECIPE_CATEGORIES],
       placeLabels: DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
       eventCategories: DEFAULT_EVENT_CATEGORIES.map((c) => ({ ...c })),
+      costGroups: [...DEFAULT_COST_GROUPS],
     },
   };
+}
+
+// Alte Verträge hatten eine Zahlweise statt Abbuchungsmonaten
+function monthsFromInterval(interval: ContractInterval | undefined): number[] {
+  if (interval === "quarterly") return [1, 4, 7, 10];
+  if (interval === "yearly") return [1];
+  return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 }
 
 // Ergänzt fehlende Felder (z. B. bei Daten aus älteren Versionen der App)
@@ -160,12 +213,26 @@ export function normalizeLibrary(
   const categories = d.settings?.recipeCategories;
   const labels = d.settings?.placeLabels;
   const eventCats = d.settings?.eventCategories;
+  const costGroups = d.settings?.costGroups;
+  const budget = d.budget;
   return {
     version: 1,
     recipes: Array.isArray(d.recipes) ? d.recipes : [],
     places: Array.isArray(d.places) ? d.places : [],
     todos: Array.isArray(d.todos) ? d.todos : [],
-    contracts: Array.isArray(d.contracts) ? d.contracts : [],
+    contracts: Array.isArray(d.contracts)
+      ? d.contracts.map((c) => ({
+          ...c,
+          months: Array.isArray(c.months)
+            ? c.months
+            : monthsFromInterval(c.interval),
+        }))
+      : [],
+    priceChecks: Array.isArray(d.priceChecks) ? d.priceChecks : [],
+    budget: {
+      template: budget?.template ?? {},
+      months: budget?.months ?? {},
+    },
     events: Array.isArray(d.events) ? d.events : [],
     shopping: Array.isArray(d.shopping) ? d.shopping : [],
     settings: {
@@ -178,6 +245,9 @@ export function normalizeLibrary(
       eventCategories: Array.isArray(eventCats)
         ? eventCats
         : DEFAULT_EVENT_CATEGORIES.map((c) => ({ ...c })),
+      costGroups: Array.isArray(costGroups)
+        ? costGroups
+        : [...DEFAULT_COST_GROUPS],
     },
   };
 }

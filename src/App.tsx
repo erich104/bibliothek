@@ -16,6 +16,7 @@ import Travel from "./pages/Travel";
 import Calendar from "./pages/Calendar";
 import Todos from "./pages/Todos";
 import Contracts from "./pages/Contracts";
+import Costs from "./pages/Costs";
 import SettingsPage from "./pages/SettingsPage";
 
 type Tab =
@@ -25,6 +26,7 @@ type Tab =
   | "calendar"
   | "todos"
   | "contracts"
+  | "costs"
   | "settings";
 
 const TABS: { id: Tab; label: string }[] = [
@@ -34,6 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "calendar", label: "Kalender" },
   { id: "todos", label: "To-Do" },
   { id: "contracts", label: "Verträge" },
+  { id: "costs", label: "Kosten" },
   { id: "settings", label: "Konfiguration" },
 ];
 
@@ -305,10 +308,7 @@ export default function App() {
       )}
 
       {tab === "calendar" && (
-        <Calendar
-          library={library}
-          onChange={(events) => updateLibrary({ ...library, events })}
-        />
+        <Calendar library={library} onChange={updateLibrary} />
       )}
 
       {tab === "todos" && (
@@ -319,11 +319,10 @@ export default function App() {
       )}
 
       {tab === "contracts" && (
-        <Contracts
-          contracts={library.contracts}
-          onChange={(contracts) => updateLibrary({ ...library, contracts })}
-        />
+        <Contracts library={library} onChange={updateLibrary} />
       )}
+
+      {tab === "costs" && <Costs library={library} onChange={updateLibrary} />}
 
       {tab === "settings" && (
           <SettingsPage

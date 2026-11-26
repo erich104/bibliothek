@@ -10,6 +10,8 @@ import { itemsBetween, KIND_COLOR, KIND_LABEL } from "../utils/calendarItems";
 import type { CalendarItem } from "../utils/calendarItems";
 import { formatDateLong, parseIso, todayIso, toIso } from "../utils/format";
 import { safeColor } from "../utils/colors";
+import { addPriceCheck } from "../utils/priceChecks";
+import PriceCheckRow from "../components/PriceCheckRow";
 
 const MONTHS = [
   "Januar",
@@ -36,7 +38,7 @@ const UNIT_NAME: Record<RepeatUnit, string> = {
 
 type Props = {
   library: Library;
-  onChange: (events: CalendarEvent[]) => void;
+  onChange: (library: Library) => void;
 };
 
 export default function Calendar({ library, onChange }: Props) {
@@ -46,10 +48,15 @@ export default function Calendar({ library, onChange }: Props) {
   const [month, setMonth] = useState(now.getMonth());
   const [selected, setSelected] = useState(today);
   const [editing, setEditing] = useState<CalendarEvent | "new" | null>(null);
+  const [addingCheck, setAddingCheck] = useState(false);
   const [template, setTemplate] = useState<Partial<CalendarEvent> | null>(null);
   const [formKey, setFormKey] = useState(0);
 
   const categories = library.settings.eventCategories;
+
+  function setEvents(events: CalendarEvent[]) {
+    onChange({ ...library, events });
+  }
 
   function goTo(y: number, m: number) {
     const d = new Date(y, m, 1);
@@ -61,17 +68,21 @@ export default function Calendar({ library, onChange }: Props) {
     setSelected(isCurrent ? toIso(t) : toIso(d));
   }
 
+  function showDay(iso: string) {
+    const d = parseIso(iso);
+    setYear(d.getFullYear());
+    setMonth(d.getMonth());
+    setSelected(iso);
+  }
+
   function saveEvent(ev: CalendarEvent, again: boolean) {
     const exists = library.events.some((e) => e.id === ev.id);
-    onChange(
+    setEvents(
       exists
         ? library.events.map((e) => (e.id === ev.id ? ev : e))
         : [...library.events, ev]
     );
-    const d = parseIso(ev.date);
-    setYear(d.getFullYear());
-    setMonth(d.getMonth());
-    setSelected(ev.date);
+    showDay(ev.date);
     if (again) {
       // Neues Formular mit übernommenem Titel, Kategorie und Uhrzeit
       setTemplate({
@@ -91,8 +102,23 @@ export default function Calendar({ library, onChange }: Props) {
     if (!confirm("Termin wirklich löschen? Bei Wiederholungen werden alle gelöscht.")) {
       return;
     }
-    onChange(library.events.filter((e) => e.id !== id));
+    setEvents(library.events.filter((e) => e.id !== id));
     setEditing(null);
+  }
+
+  if (addingCheck) {
+    return (
+      <PriceCheckForm
+        library={library}
+        defaultDate={selected}
+        onSave={(contractId, date) => {
+          onChange(addPriceCheck(library, contractId, date));
+          showDay(date);
+          setAddingCheck(false);
+        }}
+        onCancel={() => setAddingCheck(false)}
+      />
+    );
   }
 
   if (editing) {
@@ -139,6 +165,7 @@ export default function Calendar({ library, onChange }: Props) {
     ...categories.map((c) => ({ label: c.name, color: safeColor(c.color) })),
     { label: KIND_LABEL.todo, color: KIND_COLOR.todo },
     { label: KIND_LABEL.contract, color: KIND_COLOR.contract },
+    { label: KIND_LABEL.pricecheck, color: KIND_COLOR.pricecheck },
     { label: KIND_LABEL.place, color: KIND_COLOR.place },
   ];
 
@@ -203,8 +230,8 @@ export default function Calendar({ library, onChange }: Props) {
       </p>
 
       <div className="home-section">
+        <h3 style={{ marginBottom: 8 }}>{formatDateLong(selected)}</h3>
         <div className="row">
-          <h3 style={{ margin: 0 }}>{formatDateLong(selected)}</h3>
           <button
             className="primary"
             onClick={() => {
@@ -215,6 +242,7 @@ export default function Calendar({ library, onChange }: Props) {
           >
             + Termin
           </button>
+          <button onClick={() => setAddingCheck(true)}>+ Preisprüfung</button>
         </div>
 
         {dayItems.length === 0 && (
@@ -223,6 +251,22 @@ export default function Calendar({ library, onChange }: Props) {
 
         <ul className="todo-list">
           {dayItems.map((it) => {
+            if (it.kind === "pricecheck") {
+              const contract = library.contracts.find((c) => c.id === it.refId);
+              if (!contract) return null;
+              return (
+                <li className="todo-item" key={it.key}>
+                  <span className="pin-dot" style={{ background: it.color }} />
+                  <PriceCheckRow
+                    contract={contract}
+                    date={it.date}
+                    manualId={it.manualId}
+                    library={library}
+                    onChange={onChange}
+                  />
+                </li>
+              );
+            }
             const ev =
               it.kind === "event"
                 ? library.events.find((e) => e.id === it.refId)
@@ -253,6 +297,89 @@ export default function Calendar({ library, onChange }: Props) {
     </div>
   );
 }
+
+// ---------- Preisprüfung von Hand anlegen ----------
+
+type CheckFormProps = {
+  library: Library;
+  defaultDate: string;
+  onSave: (contractId: string, date: string) => void;
+  onCancel: () => void;
+};
+
+function PriceCheckForm({
+  library,
+  defaultDate,
+  onSave,
+  onCancel,
+}: CheckFormProps) {
+  const candidates = library.contracts.filter(
+    (c) => !!c.cost || (c.priceChanges ?? []).length > 0
+  );
+  const [contractId, setContractId] = useState(candidates[0]?.id ?? "");
+  const [date, setDate] = useState(defaultDate);
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!contractId || !date) {
+      alert("Bitte wähle einen Vertrag und ein Datum.");
+      return;
+    }
+    onSave(contractId, date);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2>Preisprüfung anlegen</h2>
+      {candidates.length === 0 ? (
+        <p className="muted">
+          Es gibt noch keine Verträge mit Kosten. Lege zuerst einen Vertrag mit
+          Betrag an.
+        </p>
+      ) : (
+        <>
+          <label>
+            Vertrag
+            <select
+              value={contractId}
+              onChange={(e) => setContractId(e.target.value)}
+            >
+              {candidates.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Datum
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </label>
+          <p className="muted">
+            Am gewählten Tag erscheint die Prüfung im Kalender und auf der
+            Startseite, dort kannst du sie bestätigen oder den Betrag ändern.
+          </p>
+        </>
+      )}
+      <div className="row" style={{ marginTop: 16 }}>
+        {candidates.length > 0 && (
+          <button type="submit" className="primary">
+            Anlegen
+          </button>
+        )}
+        <button type="button" onClick={onCancel}>
+          Abbrechen
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------- Termin anlegen und bearbeiten ----------
 
 type FormProps = {
   initial?: CalendarEvent;

@@ -1,8 +1,9 @@
 import type { CalendarEvent, Library } from "../models/types";
 import { addDays, addMonths, diffDays } from "./format";
 import { safeColor } from "./colors";
+import { openPriceChecks } from "./priceChecks";
 
-export type ItemKind = "event" | "todo" | "contract" | "place";
+export type ItemKind = "event" | "todo" | "contract" | "place" | "pricecheck";
 
 export type CalendarItem = {
   key: string;
@@ -13,7 +14,8 @@ export type CalendarItem = {
   time?: string;
   detail?: string;
   done?: boolean;
-  refId?: string; // ID des Termins bzw. der Aufgabe
+  refId?: string; // ID des Termins, der Aufgabe bzw. des Vertrags
+  manualId?: string; // bei von Hand angelegten Preisprüfungen
   category?: string;
   repeats?: boolean;
 };
@@ -23,6 +25,7 @@ export const KIND_LABEL: Record<ItemKind, string> = {
   todo: "To-Do",
   contract: "Vertrag",
   place: "Reise",
+  pricecheck: "Preisprüfung",
 };
 
 export const KIND_COLOR: Record<ItemKind, string> = {
@@ -30,6 +33,7 @@ export const KIND_COLOR: Record<ItemKind, string> = {
   todo: "#2563eb",
   contract: "#b45309",
   place: "#8e44ad",
+  pricecheck: "#0d9488",
 };
 
 // Alle Anfangsdaten eines Termins (bei Wiederholung viele) bis zum Ende des Zeitraums
@@ -146,6 +150,21 @@ export function itemsBetween(
         title: `Vertrag läuft aus: ${c.name}`,
         color: KIND_COLOR.contract,
         refId: c.id,
+      });
+    }
+  }
+
+  // Preisprüfungen (automatisch alle 6 Monate und von Hand angelegte)
+  for (const chk of openPriceChecks(lib)) {
+    if (inRange(chk.date)) {
+      out.push({
+        key: `pricecheck-${chk.key}`,
+        date: chk.date,
+        kind: "pricecheck",
+        title: `Preis prüfen: ${chk.contract.name}`,
+        color: KIND_COLOR.pricecheck,
+        refId: chk.contract.id,
+        manualId: chk.manualId,
       });
     }
   }

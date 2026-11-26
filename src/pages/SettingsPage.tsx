@@ -21,10 +21,12 @@ export default function SettingsPage({
   const [labelColorNew, setLabelColorNew] = useState("#3b82f6");
   const [evName, setEvName] = useState("");
   const [evColorNew, setEvColorNew] = useState("#2f6f4f");
+  const [groupName, setGroupName] = useState("");
 
   const categories = library.settings.recipeCategories;
   const labels = library.settings.placeLabels;
   const eventCats = library.settings.eventCategories;
+  const costGroups = library.settings.costGroups;
 
   // ---- Rezept-Kategorien ----
   function addCategory(e: FormEvent) {
@@ -165,6 +167,54 @@ export default function SettingsPage({
     });
   }
 
+  // ---- Kostengruppen ----
+  function addCostGroup(e: FormEvent) {
+    e.preventDefault();
+    const n = groupName.trim();
+    if (!n) return;
+    if (costGroups.some((g) => g.toLowerCase() === n.toLowerCase())) {
+      alert("Diese Kostengruppe gibt es schon.");
+      return;
+    }
+    onChange({
+      ...library,
+      settings: { ...library.settings, costGroups: [...costGroups, n] },
+    });
+    setGroupName("");
+  }
+
+  function removeCostGroup(name: string) {
+    const used = library.contracts.filter((c) => c.costGroup === name).length;
+    const message =
+      used > 0
+        ? `„${name}“ wird von ${used} Vertrag/Verträgen verwendet. Diese landen dann unter „Ohne Gruppe“. Die eingetragenen Plan-Beträge dieser Gruppe werden gelöscht. Trotzdem löschen?`
+        : `Kostengruppe „${name}“ und ihre Plan-Beträge löschen?`;
+    if (!confirm(message)) return;
+
+    const dropGroup = (plan: Library["budget"]["template"]) => {
+      if (!plan.expenses || !(name in plan.expenses)) return plan;
+      const expenses = { ...plan.expenses };
+      delete expenses[name];
+      return { ...plan, expenses };
+    };
+    const months: Library["budget"]["months"] = {};
+    for (const [key, plan] of Object.entries(library.budget.months)) {
+      months[key] = dropGroup(plan);
+    }
+
+    onChange({
+      ...library,
+      contracts: library.contracts.map((c) =>
+        c.costGroup === name ? { ...c, costGroup: undefined } : c
+      ),
+      budget: { template: dropGroup(library.budget.template), months },
+      settings: {
+        ...library.settings,
+        costGroups: costGroups.filter((g) => g !== name),
+      },
+    });
+  }
+
   return (
     <div>
       <h2>Konfiguration</h2>
@@ -278,6 +328,38 @@ export default function SettingsPage({
               placeholder="Neue Kategorie, z. B. Sport"
               value={evName}
               onChange={(e) => setEvName(e.target.value)}
+            />
+            <button type="submit" className="primary">
+              + Hinzufügen
+            </button>
+          </form>
+        </div>
+      </details>
+
+      <details className="settings-group">
+        <summary>Kosten</summary>
+        <div className="settings-body">
+          <h3>Kostengruppen</h3>
+          <p className="muted">
+            Damit gliederst du die Kostenübersicht (z. B. Miete, Essen) und
+            ordnest Verträge zu.
+          </p>
+          <ul className="todo-list">
+            {costGroups.map((g) => (
+              <li className="todo-item" key={g}>
+                <span style={{ flex: 1 }}>{g}</span>
+                <button onClick={() => removeCostGroup(g)}>✕</button>
+              </li>
+            ))}
+          </ul>
+          {costGroups.length === 0 && (
+            <p className="muted">Keine Kostengruppen vorhanden.</p>
+          )}
+          <form className="row" onSubmit={addCostGroup}>
+            <input
+              placeholder="Neue Kostengruppe, z. B. Kleidung"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
             />
             <button type="submit" className="primary">
               + Hinzufügen

@@ -457,3 +457,81 @@ details.settings-group > summary {
   border-color: #dc2626;
   color: #fff;
 }
+
+/* ---- Kosten und Verträge ---- */
+
+.amount-input {
+  margin-top: 0;
+  text-align: right;
+}
+
+.cost-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.cost-row .label {
+  flex: 1;
+  min-width: 0;
+}
+
+.cost-row .amount-input {
+  flex: 0 0 120px;
+  width: 120px;
+}
+
+.cost-sub {
+  padding: 0 0 4px 12px;
+  font-size: 0.8rem;
+  color: #777;
+}
+
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #eee;
+  font-weight: 600;
+}
+
+.pos {
+  color: #2f6f4f;
+}
+
+.neg {
+  color: #dc2626;
+}
+
+details.settings-group > summary.month-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.months-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.month-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 0;
+  font-size: 0.9rem;
+}
+
+.month-check input {
+  width: auto;
+  margin: 0;
+}
+
+.pricecheck {
+  flex: 1;
+  min-width: 0;
+}
