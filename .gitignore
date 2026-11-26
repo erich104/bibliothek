@@ -26,3 +26,5 @@ dist-ssr
 # Eigene Daten und Einstellungen nicht hochladen
 .env
 bibliothek-backup-*.json
+basislager-backup-*.json
+basislager-*.json

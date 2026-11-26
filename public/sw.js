@@ -1,7 +1,7 @@
 // Einfacher Service Worker: merkt sich die App-Dateien, damit die App schneller
 // startet und die Oberfläche auch ohne Netz lädt. Daten aus Google Drive werden
 // bewusst NICHT zwischengespeichert.
-const CACHE = "bibliothek-v1"; // bei Problemen auf "v2" erhöhen, das leert den Zwischenspeicher
+const CACHE = "basislager-v1"; // bei Problemen auf "v2" erhöhen, das leert den Zwischenspeicher
 const MAX_ENTRIES = 80;
 
 self.addEventListener("install", () => self.skipWaiting());

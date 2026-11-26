@@ -1,4 +1,4 @@
-# Meine Bibliothek
+# Basislager
 
 Persönliche Web-App für den Eigenbedarf: Rezepte, Reisen, Kalender, Aufgaben, Einkaufsliste und Verträge/Abos an einem Ort.
 Läuft im Browser und lässt sich als App auf Handy, Tablet und Laptop installieren (PWA).
@@ -31,11 +31,14 @@ Läuft im Browser und lässt sich als App auf Handy, Tablet und Laptop installie
 - **Konfiguration**: Kategorien (Rezepte, Kalender), Labels mit Farben (Reisen), Backup Export/Import (alles in einer Datei)
 - Anmeldung mit Google (Weiterleitung), Speichern in Google Drive (gebündelt), Abmelden-Knopf
 - **PWA**: App-Symbol, Vollbild, schneller Start, Oberfläche auch ohne Netz
+- **To-Do**: zusätzlich eine **Wunschliste** für langfristige Wünsche
+- **Kosten**: Kostengruppen als **Festkosten** (Vorlage) oder **variabel** (Einzelposten mit Verwendungszweck und Betrag)
+- **Backup**: gesamt oder **pro Bereich** (z. B. nur Kalender), Import auch eines einzelnen Bereichs aus einem Gesamtbackup
 
 ### Geplant
 
 
-2. Neuer Name
+
 3. Rezept-Import per Link (braucht eine kleine Zwischenstation, z. B. Cloudflare Worker)
 4. Offline-Lesemodus (lokale Kopie der Daten, bewusste Entscheidung nötig)
 5. Google-Kalender anzeigen, Google-Maps-Import für Orte
@@ -57,8 +60,8 @@ Läuft im Browser und lässt sich als App auf Handy, Tablet und Laptop installie
 src/
   models/types.ts            Datentypen, Standardwerte, normalizeLibrary()
   storage/driveStorage.ts    ALLES rund um Google Drive und Anmeldung (login, logout, loadLibrary, saveLibrary)
-  utils/                     format (Datum), colors, geo, geocode, image, mapIcons, calendarItems, costs, priceChecks
-  components/                RecipeForm, PlaceForm, MapFlyTo, AmountInput, PriceCheckRow
+  utils/                     format (Datum), colors, geo, geocode, image, mapIcons, calendarItems, costs, priceChecks, backup
+  components/                RecipeForm, PlaceForm, MapFlyTo, AmountInput, PriceCheckRow, BackupSection
   pages/                     Home, Recipes, Travel, Calendar, Todos, Contracts, Costs, SettingsPage (= Konfiguration)
   App.tsx                    Anmeldung, Reiter, zentrales gebündeltes Speichern, Backup-Funktionen
   index.css                  Styles inkl. Druckansicht
@@ -76,7 +79,7 @@ Alles steckt in einer Datei `bibliothek.json`:
 ```
 {
   version, recipes[], places[], todos[], contracts[], priceChecks[], budget{template, months}, events[], shopping[],
-  settings: { recipeCategories[], placeLabels[], eventCategories[], costGroups[] }
+  settings: { recipeCategories[], placeLabels[], eventCategories[], costGroups[], wishes[], expenseEntries[], settings.variableCostGroups[] }
 }
 ```
 
@@ -128,7 +131,7 @@ Beim ersten Login erscheint "Google hat diese App nicht überprüft": unter "Erw
 - Die App sieht nur ihren eigenen App-Ordner (`drive.appdata`), nicht das übrige Drive
 - Das Anmelde-Token wird nie dauerhaft gespeichert
 - GitHub-Konto mit Zwei-Faktor-Authentifizierung schützen (wer pushen kann, kann den App-Code ändern)
-- Backup-Dateien (`bibliothek-backup-*.json`) und `.env` nie hochladen (stehen in `.gitignore`)
+- Backup-Dateien (`bibliothek-backup-*.json`,`basislager-*.json`) und `.env` nie hochladen (stehen in `.gitignore`)
 - Keine IBAN, Passwörter oder Vertragsnummern in Notizen speichern
 
 ## Entscheidungen

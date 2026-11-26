@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { Todo, TodoPriority } from "../models/types";
+import type { Todo, TodoPriority, Wish } from "../models/types";
 import { daysUntil, formatDate, todayIso } from "../utils/format";
 
 const LABEL: Record<TodoPriority, string> = {
@@ -30,12 +30,20 @@ function byPriorityThenDue(a: Todo, b: Todo) {
 type Props = {
   todos: Todo[];
   onChange: (todos: Todo[]) => void;
+  wishes: Wish[];
+  onChangeWishes: (wishes: Wish[]) => void;
 };
 
-export default function Todos({ todos, onChange }: Props) {
+export default function Todos({
+  todos,
+  onChange,
+  wishes,
+  onChangeWishes,
+}: Props) {
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<TodoPriority>("normal");
+  const [wish, setWish] = useState("");
   const today = todayIso();
 
   function addTodo(e: FormEvent) {
@@ -76,6 +84,21 @@ export default function Todos({ todos, onChange }: Props) {
   function clearDone() {
     if (!confirm("Alle erledigten Aufgaben löschen?")) return;
     onChange(todos.filter((t) => !t.done));
+  }
+
+  function addWish(e: FormEvent) {
+    e.preventDefault();
+    const t = wish.trim();
+    if (!t) return;
+    onChangeWishes([
+      ...wishes,
+      { id: crypto.randomUUID(), text: t, createdAt: new Date().toISOString() },
+    ]);
+    setWish("");
+  }
+
+  function removeWish(id: string) {
+    onChangeWishes(wishes.filter((w) => w.id !== id));
   }
 
   const open = todos.filter((t) => !t.done).sort(byPriorityThenDue);
@@ -160,6 +183,31 @@ export default function Todos({ todos, onChange }: Props) {
           <button onClick={clearDone}>Erledigte löschen</button>
         </>
       )}
+
+      {/* Wunschliste */}
+      <div className="home-section" style={{ marginTop: 24 }}>
+        <h3>Wunschliste</h3>
+        <p className="muted">Langfristige Wünsche, ohne Termin und ohne Druck.</p>
+        <form className="row" onSubmit={addWish}>
+          <input
+            placeholder="Neuer Wunsch …"
+            value={wish}
+            onChange={(e) => setWish(e.target.value)}
+          />
+          <button type="submit" className="primary">
+            + Hinzufügen
+          </button>
+        </form>
+        {wishes.length === 0 && <p className="muted">Noch keine Wünsche.</p>}
+        <ul className="todo-list">
+          {wishes.map((w) => (
+            <li className="todo-item" key={w.id}>
+              <span style={{ flex: 1 }}>{w.text}</span>
+              <button onClick={() => removeWish(w.id)}>✕</button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

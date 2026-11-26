@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { Budget, Library, MonthPlan } from "../models/types";
+import type {
+  Budget,
+  ExpenseEntry,
+  Library,
+  MonthPlan,
+} from "../models/types";
 import AmountInput from "../components/AmountInput";
 import {
   euro,
@@ -16,9 +21,10 @@ type Props = {
 
 // Entfernt leere Teile aus einem Monatsplan
 function cleanPlan(plan: MonthPlan): MonthPlan | null {
-  const expenses = plan.expenses && Object.keys(plan.expenses).length > 0
-    ? plan.expenses
-    : undefined;
+  const expenses =
+    plan.expenses && Object.keys(plan.expenses).length > 0
+      ? plan.expenses
+      : undefined;
   const result: MonthPlan = {
     salary: plan.salary,
     otherIncome: plan.otherIncome,
@@ -36,6 +42,8 @@ export default function Costs({ library, onChange }: Props) {
   const [year, setYear] = useState(now.getFullYear());
   const budget = library.budget;
   const groups = library.settings.costGroups;
+  const variableGroups = library.settings.variableCostGroups;
+  const fixedGroups = groups.filter((g) => !variableGroups.includes(g));
 
   function saveBudget(b: Budget) {
     onChange({ ...library, budget: b });
@@ -80,6 +88,26 @@ export default function Costs({ library, onChange }: Props) {
     if (v === undefined) delete expenses[group];
     else expenses[group] = v;
     updateMonth(ym, { ...plan, expenses });
+  }
+
+  // ---- Einzelposten variabler Gruppen ----
+  function addEntry(ym: string, group: string, label: string, amount: number) {
+    const entry: ExpenseEntry = {
+      id: crypto.randomUUID(),
+      ym,
+      group,
+      label,
+      amount,
+      createdAt: new Date().toISOString(),
+    };
+    onChange({ ...library, expenseEntries: [...library.expenseEntries, entry] });
+  }
+
+  function removeEntry(id: string) {
+    onChange({
+      ...library,
+      expenseEntries: library.expenseEntries.filter((e) => e.id !== id),
+    });
   }
 
   const summaries = Array.from({ length: 12 }, (_, i) =>
@@ -147,13 +175,13 @@ export default function Costs({ library, onChange }: Props) {
               onCommit={(v) => setTemplateField("otherIncome", v)}
             />
           </div>
-          <h3>Ausgaben (ohne Verträge)</h3>
-          {groups.length === 0 && (
+          <h3>Festkosten (ohne Verträge)</h3>
+          {fixedGroups.length === 0 && (
             <p className="muted">
-              Lege zuerst Kostengruppen unter Konfiguration → Kosten an.
+              Keine Festkosten-Gruppen. Lege sie unter Konfiguration → Kosten an.
             </p>
           )}
-          {groups.map((g) => (
+          {fixedGroups.map((g) => (
             <div className="cost-row" key={g}>
               <span className="label">{g}</span>
               <AmountInput
@@ -165,6 +193,12 @@ export default function Costs({ library, onChange }: Props) {
               />
             </div>
           ))}
+          {variableGroups.length > 0 && (
+            <p className="muted">
+              Variable Gruppen ({variableGroups.join(", ")}) hast du keine
+              Vorlage: Dort trägst du im jeweiligen Monat einzelne Posten ein.
+            </p>
+          )}
         </div>
       </details>
 
@@ -193,7 +227,11 @@ export default function Costs({ library, onChange }: Props) {
                 <AmountInput
                   key={`${ym}-salary-${plan.salary}`}
                   value={plan.salary}
-                  placeholder={tpl.salary !== undefined ? String(tpl.salary).replace(".", ",") : "0"}
+                  placeholder={
+                    tpl.salary !== undefined
+                      ? String(tpl.salary).replace(".", ",")
+                      : "0"
+                  }
                   ariaLabel={`Gehalt ${MONTH_NAMES[i]}`}
                   onCommit={(v) => setMonthField(ym, "salary", v)}
                 />
@@ -203,7 +241,11 @@ export default function Costs({ library, onChange }: Props) {
                 <AmountInput
                   key={`${ym}-other-${plan.otherIncome}`}
                   value={plan.otherIncome}
-                  placeholder={tpl.otherIncome !== undefined ? String(tpl.otherIncome).replace(".", ",") : "0"}
+                  placeholder={
+                    tpl.otherIncome !== undefined
+                      ? String(tpl.otherIncome).replace(".", ",")
+                      : "0"
+                  }
                   ariaLabel={`Sonstige Einnahmen ${MONTH_NAMES[i]}`}
                   onCommit={(v) => setMonthField(ym, "otherIncome", v)}
                 />
@@ -211,6 +253,46 @@ export default function Costs({ library, onChange }: Props) {
 
               <h3>Ausgaben</h3>
               {s.groups.map((g) => {
+                if (g.variable) {
+                  return (
+                    <div key={g.name}>
+                      <div className="cost-row">
+                        <span className="label">
+                          {g.name}
+                          <span className="muted">
+                            {" "}
+                            · variabel · gesamt {euro(g.total)}
+                          </span>
+                        </span>
+                      </div>
+                      {g.entries.map((e) => (
+                        <div className="entry-line" key={e.id}>
+                          <span className="label">{e.label}</span>
+                          <span>{euro(e.amount)}</span>
+                          <button
+                            className="small-x"
+                            title="Posten entfernen"
+                            aria-label={`Posten ${e.label} entfernen`}
+                            onClick={() => removeEntry(e.id)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <EntryAdder
+                        onAdd={(label, amount) =>
+                          addEntry(ym, g.name, label, amount)
+                        }
+                      />
+                      {g.contracts.map((c) => (
+                        <div className="cost-sub" key={c.id}>
+                          + Vertrag {c.name}: {euro(c.amount)}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
                 const isLoose = g.name === NO_GROUP;
                 return (
                   <div key={g.name}>
@@ -264,10 +346,65 @@ export default function Costs({ library, onChange }: Props) {
       })}
 
       <p className="muted">
-        Leere Felder übernehmen die Vorlage (grauer Wert). Ein eingetragener Wert
-        gilt nur für den jeweiligen Monat. Die Beträge neben den Gruppen sind
-        Plan-Beträge ohne Verträge. Vertragskosten kommen automatisch dazu.
+        Bei Festkosten übernehmen leere Felder die Vorlage (grauer Wert), ein
+        eingetragener Wert gilt nur für den jeweiligen Monat. Bei variablen
+        Gruppen trägst du einzelne Posten mit Verwendungszweck und Betrag ein.
+        Vertragskosten kommen automatisch dazu.
       </p>
+    </div>
+  );
+}
+
+// Zwei Felder (Verwendungszweck, Betrag) und ein Plus-Knopf für variable Gruppen
+function EntryAdder({
+  onAdd,
+}: {
+  onAdd: (label: string, amount: number) => void;
+}) {
+  const [label, setLabel] = useState("");
+  const [amount, setAmount] = useState("");
+
+  function add() {
+    const n = Number(amount.trim().replace(",", "."));
+    if (!label.trim()) {
+      alert("Bitte gib einen Verwendungszweck ein.");
+      return;
+    }
+    if (amount.trim() === "" || !Number.isFinite(n) || n <= 0) {
+      alert("Bitte gib einen gültigen Betrag ein.");
+      return;
+    }
+    onAdd(label.trim(), Math.round(n * 100) / 100);
+    setLabel("");
+    setAmount("");
+  }
+
+  function onEnter(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      add();
+    }
+  }
+
+  return (
+    <div className="row entry-adder">
+      <input
+        placeholder="Verwendungszweck"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onKeyDown={onEnter}
+      />
+      <input
+        className="amount-input"
+        inputMode="decimal"
+        placeholder="Betrag"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        onKeyDown={onEnter}
+      />
+      <button type="button" className="primary" onClick={add} aria-label="Posten hinzufügen">
+        +
+      </button>
     </div>
   );
 }

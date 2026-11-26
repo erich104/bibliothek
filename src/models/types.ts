@@ -46,6 +46,13 @@ export type Todo = {
   createdAt: string;
 };
 
+// Langfristiger Wunsch (nur Text)
+export type Wish = {
+  id: string;
+  text: string;
+  createdAt: string;
+};
+
 export type ContractInterval = "monthly" | "quarterly" | "yearly";
 
 // Preisänderung, gilt ab dem Monat "from" ("JJJJ-MM")
@@ -116,7 +123,7 @@ export type ShoppingItem = {
 export type MonthPlan = {
   salary?: number;
   otherIncome?: number;
-  expenses?: Record<string, number>; // je Kostengruppe, ohne Verträge
+  expenses?: Record<string, number>; // je Festkosten-Gruppe, ohne Verträge
 };
 
 export type Budget = {
@@ -124,11 +131,22 @@ export type Budget = {
   months: Record<string, MonthPlan>; // Überschreibungen je Monat ("JJJJ-MM")
 };
 
+// Einzelner Posten einer variablen Kostengruppe (z. B. ein Einkauf)
+export type ExpenseEntry = {
+  id: string;
+  ym: string; // Monat, "JJJJ-MM"
+  group: string; // Name der Kostengruppe
+  label: string; // Verwendungszweck
+  amount: number;
+  createdAt: string;
+};
+
 export type Settings = {
   recipeCategories: string[];
   placeLabels: PlaceLabel[];
   eventCategories: EventCategory[];
   costGroups: string[];
+  variableCostGroups: string[]; // Teilmenge von costGroups, die variabel sind
 };
 
 export type Library = {
@@ -136,9 +154,11 @@ export type Library = {
   recipes: Recipe[];
   places: Place[];
   todos: Todo[];
+  wishes: Wish[];
   contracts: Contract[];
   priceChecks: PriceCheck[];
   budget: Budget;
+  expenseEntries: ExpenseEntry[];
   events: CalendarEvent[];
   shopping: ShoppingItem[];
   settings: Settings;
@@ -178,15 +198,19 @@ export const DEFAULT_COST_GROUPS = [
   "Sonstiges",
 ];
 
+export const DEFAULT_VARIABLE_COST_GROUPS = ["Essen"];
+
 export function emptyLibrary(): Library {
   return {
     version: 1,
     recipes: [],
     places: [],
     todos: [],
+    wishes: [],
     contracts: [],
     priceChecks: [],
     budget: { template: {}, months: {} },
+    expenseEntries: [],
     events: [],
     shopping: [],
     settings: {
@@ -194,6 +218,7 @@ export function emptyLibrary(): Library {
       placeLabels: DEFAULT_PLACE_LABELS.map((l) => ({ ...l })),
       eventCategories: DEFAULT_EVENT_CATEGORIES.map((c) => ({ ...c })),
       costGroups: [...DEFAULT_COST_GROUPS],
+      variableCostGroups: [...DEFAULT_VARIABLE_COST_GROUPS],
     },
   };
 }
@@ -214,12 +239,14 @@ export function normalizeLibrary(
   const labels = d.settings?.placeLabels;
   const eventCats = d.settings?.eventCategories;
   const costGroups = d.settings?.costGroups;
+  const variableGroups = d.settings?.variableCostGroups;
   const budget = d.budget;
   return {
     version: 1,
     recipes: Array.isArray(d.recipes) ? d.recipes : [],
     places: Array.isArray(d.places) ? d.places : [],
     todos: Array.isArray(d.todos) ? d.todos : [],
+    wishes: Array.isArray(d.wishes) ? d.wishes : [],
     contracts: Array.isArray(d.contracts)
       ? d.contracts.map((c) => ({
           ...c,
@@ -233,6 +260,7 @@ export function normalizeLibrary(
       template: budget?.template ?? {},
       months: budget?.months ?? {},
     },
+    expenseEntries: Array.isArray(d.expenseEntries) ? d.expenseEntries : [],
     events: Array.isArray(d.events) ? d.events : [],
     shopping: Array.isArray(d.shopping) ? d.shopping : [],
     settings: {
@@ -248,6 +276,8 @@ export function normalizeLibrary(
       costGroups: Array.isArray(costGroups)
         ? costGroups
         : [...DEFAULT_COST_GROUPS],
+      // Bei bestehenden Daten bleiben zunächst alle Gruppen Festkosten
+      variableCostGroups: Array.isArray(variableGroups) ? variableGroups : [],
     },
   };
 }

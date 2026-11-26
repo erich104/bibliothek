@@ -211,7 +211,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bibliothek-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `basislager-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -235,7 +235,9 @@ export default function App() {
         }
         updateLibrary(normalizeLibrary(data));
       } catch {
-        alert("Die Datei konnte nicht gelesen werden.");
+        alert(
+          "Die Datei konnte nicht gelesen werden. Dateien einzelner Bereiche importierst du unter „Einzelner Bereich“."
+        );
       }
     };
     reader.readAsText(file);
@@ -246,7 +248,7 @@ export default function App() {
   if (!library) {
     return (
       <div className="container">
-        <h1>Meine Bibliothek</h1>
+        <h1>Basislager</h1>
         <p className="muted">Status: {status}</p>
         <button className="primary" onClick={handleLogin}>
           Mit Google anmelden
@@ -258,7 +260,7 @@ export default function App() {
   return (
     <div className="container">
       <div className="row" style={{ alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>Meine Bibliothek</h1>
+        <h1 style={{ margin: 0 }}>Basislager</h1>
         <button onClick={handleLogout}>Abmelden</button>
       </div>
 
@@ -315,6 +317,8 @@ export default function App() {
         <Todos
           todos={library.todos}
           onChange={(todos) => updateLibrary({ ...library, todos })}
+          wishes={library.wishes}
+          onChangeWishes={(wishes) => updateLibrary({ ...library, wishes })}
         />
       )}
 

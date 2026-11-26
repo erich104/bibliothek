@@ -1,4 +1,9 @@
-import type { Contract, Library, MonthPlan } from "../models/types";
+import type {
+  Contract,
+  ExpenseEntry,
+  Library,
+  MonthPlan,
+} from "../models/types";
 
 export const MONTH_NAMES = [
   "Januar",
@@ -89,7 +94,9 @@ function pickValue(
 
 export type GroupLine = {
   name: string;
-  manual: number; // Plan-Betrag ohne Verträge
+  variable: boolean; // variable Gruppe: Einzelposten statt Vorlage
+  entries: ExpenseEntry[]; // Einzelposten (nur bei variablen Gruppen)
+  manual: number; // Plan-Betrag bzw. Summe der Einzelposten, ohne Verträge
   contracts: { id: string; name: string; amount: number }[];
   contractSum: number;
   total: number;
@@ -118,6 +125,7 @@ export function summarizeMonth(
   const other = pickValue(lib, ym, (p) => p.otherIncome);
 
   const groupNames = lib.settings.costGroups;
+  const variableNames = lib.settings.variableCostGroups;
   const charged = lib.contracts
     .filter((c) => chargedInMonth(c, year, month1))
     .map((c) => ({
@@ -129,10 +137,24 @@ export function summarizeMonth(
     }));
 
   const groups: GroupLine[] = groupNames.map((name) => {
-    const manual = pickValue(lib, ym, (p) => p.expenses?.[name]);
+    const variable = variableNames.includes(name);
+    const entries = variable
+      ? lib.expenseEntries.filter((e) => e.ym === ym && e.group === name)
+      : [];
+    const manual = variable
+      ? entries.reduce((s, e) => s + e.amount, 0)
+      : pickValue(lib, ym, (p) => p.expenses?.[name]);
     const contracts = charged.filter((c) => c.group === name);
     const contractSum = contracts.reduce((s, c) => s + c.amount, 0);
-    return { name, manual, contracts, contractSum, total: manual + contractSum };
+    return {
+      name,
+      variable,
+      entries,
+      manual,
+      contracts,
+      contractSum,
+      total: manual + contractSum,
+    };
   });
 
   const loose = charged.filter((c) => c.group === NO_GROUP);
@@ -140,6 +162,8 @@ export function summarizeMonth(
     const contractSum = loose.reduce((s, c) => s + c.amount, 0);
     groups.push({
       name: NO_GROUP,
+      variable: false,
+      entries: [],
       manual: 0,
       contracts: loose,
       contractSum,

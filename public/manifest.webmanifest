@@ -1,7 +1,7 @@
 {
-  "name": "Meine Bibliothek",
-  "short_name": "Bibliothek",
-  "description": "Rezepte, Reisen, Kalender, Aufgaben und Verträge an einem Ort",
+    "name": "Basislager",
+  "short_name": "Basislager",
+  "description": "Rezepte, Reisen, Kalender, Aufgaben, Kosten und Verträge an einem Ort",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

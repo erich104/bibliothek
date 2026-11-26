@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { Library } from "../models/types";
 import { safeColor } from "../utils/colors";
+import BackupSection from "../components/BackupSection";
 
 type Props = {
   library: Library;
@@ -22,11 +23,13 @@ export default function SettingsPage({
   const [evName, setEvName] = useState("");
   const [evColorNew, setEvColorNew] = useState("#2f6f4f");
   const [groupName, setGroupName] = useState("");
+  const [groupVariable, setGroupVariable] = useState(false);
 
   const categories = library.settings.recipeCategories;
   const labels = library.settings.placeLabels;
   const eventCats = library.settings.eventCategories;
   const costGroups = library.settings.costGroups;
+  const variableGroups = library.settings.variableCostGroups;
 
   // ---- Rezept-Kategorien ----
   function addCategory(e: FormEvent) {
@@ -178,16 +181,34 @@ export default function SettingsPage({
     }
     onChange({
       ...library,
-      settings: { ...library.settings, costGroups: [...costGroups, n] },
+      settings: {
+        ...library.settings,
+        costGroups: [...costGroups, n],
+        variableCostGroups: groupVariable
+          ? [...variableGroups, n]
+          : variableGroups,
+      },
     });
     setGroupName("");
   }
 
+  function setGroupKind(name: string, variable: boolean) {
+    const others = variableGroups.filter((g) => g !== name);
+    onChange({
+      ...library,
+      settings: {
+        ...library.settings,
+        variableCostGroups: variable ? [...others, name] : others,
+      },
+    });
+  }
+
   function removeCostGroup(name: string) {
     const used = library.contracts.filter((c) => c.costGroup === name).length;
+    const entries = library.expenseEntries.filter((e) => e.group === name).length;
     const message =
-      used > 0
-        ? `„${name}“ wird von ${used} Vertrag/Verträgen verwendet. Diese landen dann unter „Ohne Gruppe“. Die eingetragenen Plan-Beträge dieser Gruppe werden gelöscht. Trotzdem löschen?`
+      used > 0 || entries > 0
+        ? `„${name}“ wird von ${used} Vertrag/Verträgen verwendet und hat ${entries} Einzelposten. Die Verträge landen dann unter „Ohne Gruppe“, die Einzelposten und Plan-Beträge dieser Gruppe werden gelöscht. Trotzdem löschen?`
         : `Kostengruppe „${name}“ und ihre Plan-Beträge löschen?`;
     if (!confirm(message)) return;
 
@@ -207,10 +228,12 @@ export default function SettingsPage({
       contracts: library.contracts.map((c) =>
         c.costGroup === name ? { ...c, costGroup: undefined } : c
       ),
+      expenseEntries: library.expenseEntries.filter((e) => e.group !== name),
       budget: { template: dropGroup(library.budget.template), months },
       settings: {
         ...library.settings,
         costGroups: costGroups.filter((g) => g !== name),
+        variableCostGroups: variableGroups.filter((g) => g !== name),
       },
     });
   }
@@ -341,13 +364,23 @@ export default function SettingsPage({
         <div className="settings-body">
           <h3>Kostengruppen</h3>
           <p className="muted">
-            Damit gliederst du die Kostenübersicht (z. B. Miete, Essen) und
-            ordnest Verträge zu.
+            <strong>Festkosten:</strong> Du trägst den Betrag einmal in der
+            Vorlage ein, er gilt für jeden Monat. <strong>Variabel:</strong> Du
+            trägst im Monat einzelne Posten mit Verwendungszweck und Betrag ein
+            (z. B. Einkäufe). Verträge ordnest du ebenfalls einer Gruppe zu.
           </p>
           <ul className="todo-list">
             {costGroups.map((g) => (
               <li className="todo-item" key={g}>
                 <span style={{ flex: 1 }}>{g}</span>
+                <select
+                  value={variableGroups.includes(g) ? "variable" : "fixed"}
+                  onChange={(e) => setGroupKind(g, e.target.value === "variable")}
+                  style={{ flex: "0 0 auto", width: "auto" }}
+                >
+                  <option value="fixed">Festkosten</option>
+                  <option value="variable">Variabel</option>
+                </select>
                 <button onClick={() => removeCostGroup(g)}>✕</button>
               </li>
             ))}
@@ -361,6 +394,13 @@ export default function SettingsPage({
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
             />
+            <select
+              value={groupVariable ? "variable" : "fixed"}
+              onChange={(e) => setGroupVariable(e.target.value === "variable")}
+            >
+              <option value="fixed">Festkosten</option>
+              <option value="variable">Variabel</option>
+            </select>
             <button type="submit" className="primary">
               + Hinzufügen
             </button>
@@ -371,10 +411,12 @@ export default function SettingsPage({
       <details className="settings-group">
         <summary>Daten und Backup</summary>
         <div className="settings-body">
+          <h3>Gesamtes Backup</h3>
           <p className="muted">
             Das Backup enthält alles: Rezepte (mit Bildern), Orte, Termine,
-            Aufgaben, Verträge, Einkaufsliste und deine Konfiguration. Beim
-            Import werden die aktuellen Daten durch den Inhalt der Datei ersetzt.
+            Aufgaben, Wunschliste, Verträge, Kosten, Einkaufsliste und deine
+            Konfiguration. Beim Import werden die aktuellen Daten durch den Inhalt
+            der Datei ersetzt.
           </p>
           <div className="row">
             <button onClick={onExport}>Backup exportieren</button>
@@ -383,6 +425,8 @@ export default function SettingsPage({
               <input type="file" accept=".json" onChange={onImport} hidden />
             </label>
           </div>
+
+          <BackupSection library={library} onChange={onChange} />
         </div>
       </details>
     </div>
